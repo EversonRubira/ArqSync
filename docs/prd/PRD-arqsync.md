@@ -1,6 +1,6 @@
 # PRD — ArqSync (v1)
 
-> **Status:** Rascunho para revisão final
+> **Status:** Aprovado
 > **Metodologia:** Spec-Driven Development (SDD)
 > **Autor:** Everson Rubira
 > **Última atualização:** 2026-08-26
@@ -37,6 +37,7 @@ O ArqSync nasce da necessidade pessoal do autor — desenvolvedor em formação 
 - Saída em `arqsync-reports/[timestamp]/`:
   - `report.json` — dados estruturados
   - `report.html` — diagrama Mermaid, lista de ciclos detectados, lista de violações de camada, e métricas descritivas (total de pacotes, total de classes, número de ciclos, número de violações, dependências incoming/outgoing por pacote)
+- Projetos com erros de compilação: arquivos que falham no parsing são pulados e logados; o scan não é interrompido
 
 ### Fora do v1
 - Métricas de qualidade estrutural (coesão/LCOM, instabilidade/abstração de Robert Martin, distância da sequência principal) ou qualquer métrica que exija análise semântica/ponderação
@@ -84,7 +85,7 @@ Esquema de prioridade: **P0** (essencial — sem isso não há v1) / **P1** (des
 
 ### P1 — desejável, mas o v1 sobrevive sem
 
-> Nota: a funcionalidade abaixo é **P1 em prioridade de valor** (o relatório funciona sem ela), mas **implementada com prioridade de execução equivalente a P0**, por decisão do autor — a estrutura de banco já está planejada (schema, entidades, `docker-compose.yml`), e adiar a implementação geraria retrabalho maior do que implementá-la agora.
+> Nota: A persistência é tecnicamente P1 (o v1 sobrevive sem ela), mas será implementada como P0 para evitar retrabalho futuro.
 
 | # | Funcionalidade | Descrição |
 |---|---|---|
@@ -123,7 +124,7 @@ Esquema de prioridade: **P0** (essencial — sem isso não há v1) / **P1** (des
 - PostgreSQL como banco de produção/desenvolvimento (via Docker Compose ou variáveis de ambiente); H2 em memória para testes — banco é dependência opcional, com fallback gracioso (o scan roda e gera os relatórios mesmo sem banco disponível)
 - Conexão com internet necessária para visualizar o `report.html`, pois o Mermaid.js é carregado via CDN
 - Alvo de performance: projetos de porte pequeno/médio (50–500 classes). Projetos muito grandes (>10k classes) podem ter desempenho degradado no v1 — otimização fica para depois
-- Sem prazo fixo, mas com meta de manter momentum: v1 funcional em algumas semanas
+- Sem prazo fixo, mas com meta de manter momentum: v1 funcional em algumas semanas. Progresso será medido por marcos funcionais (ex: "Scanner rodando", "Analyzer detectando ciclos"), não por tempo. Meta: uma feature por semana para manter momentum.
 
 ### Premissas
 - A convenção de nomenclatura de pacotes (`controller`, `service`, `repository`, `domain`) é suficiente para detectar violações de camada na maioria dos projetos-alvo; se a convenção não for seguida pelo projeto escaneado, a detecção de violações pode falhar silenciosamente (não detectar), mas a detecção de ciclos continua funcionando normalmente, pois não depende de nomenclatura
