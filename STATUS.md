@@ -4,11 +4,11 @@
 
 ## Fase atual
 
-**PRD aprovado.** Especificação técnica (Spec) pendente.
+**Spec do Scanner concluída e aprovada.** (`docs/specs/SPEC-scanner.md`)
 
 ## Próximo passo imediato
 
-Escrever a **Spec do Scanner** — o componente base responsável por escanear os arquivos `.java` de um projeto e extrair a estrutura de pacotes, classes e imports (via JavaParser 3.26.2), sem depender de build tool (Maven/Gradle).
+Escrever a **Spec do Analyzer** — o componente responsável por consumir o `ProjectScan` produzido pelo Scanner e detectar dependências cíclicas entre pacotes e violações de camada por convenção de nomenclatura.
 
 ## Decisões fechadas (não revisitar)
 
@@ -20,10 +20,11 @@ Escrever a **Spec do Scanner** — o componente base responsável por escanear o
 - **Runtime:** Java 21 obrigatório.
 - **Persona:** uso pessoal do autor no v1 — sem generalização para times/CI/CD.
 - **Progresso medido por marcos funcionais** (ex: "Scanner rodando", "Analyzer detectando ciclos"), não por tempo. Meta: uma feature por semana.
+- **Scanner (Spec aprovada):** caminhada manual de diretório (não `SourceRoot` do JavaParser) — pacote lido da declaração `package` do arquivo, não da estrutura de pastas; falha de parsing modelada como `ParseOutcome` (sealed interface), nunca exceção; denylist fixa de diretórios de build/VCS (`target`, `build`, `.git`, `.idea`, `node_modules`, `out`); modelos (`ProjectScan`, `PackageScan`, `ClassScan`, `ScanError`) como records imutáveis; sem timeout e sem paralelismo no v1.
 
 ## Pendências (checklist de Specs)
 
-- [ ] Spec do Scanner
+- [x] Spec do Scanner
 - [ ] Spec do Analyzer
 - [ ] Spec do Persistence
 - [ ] Spec do Exporter
@@ -35,3 +36,7 @@ Escrever a **Spec do Scanner** — o componente base responsável por escanear o
 - Modo verbose vs. silencioso da CLI
 - Tema visual do `report.html` (decidido como neutro no v1)
 - Nome final dos artefatos gerados (`report.html` vs. `arqsync-report.html`)
+- Interpretação de imports estáticos/wildcard (mapeamento pacote-a-pacote) — fica para a Spec do Analyzer
+- Pacotes com mesmo nome em módulos diferentes (multi-módulo) — Scanner identifica pacotes só pelo nome no v1
+- Classes aninhadas (inner/nested) como entidades separadas — não incluído no v1
+- Paralelização do scan — otimização futura, fora do v1
