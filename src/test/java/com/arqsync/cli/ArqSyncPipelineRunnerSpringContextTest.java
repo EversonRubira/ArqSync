@@ -2,12 +2,13 @@ package com.arqsync.cli;
 
 import com.arqsync.analyzer.DependencyAnalyzer;
 import com.arqsync.exporter.ReportExporter;
+import com.arqsync.persistence.DefaultPersistenceService;
 import com.arqsync.persistence.PersistenceService;
 import com.arqsync.scanner.ScannerService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 class ArqSyncPipelineRunnerSpringContextTest {
 
-    @MockBean
+    @MockitoBean
     private ProcessExiter processExiter;
 
     @Autowired
@@ -52,5 +53,8 @@ class ArqSyncPipelineRunnerSpringContextTest {
         assertThat(persistenceService).isNotNull();
         assertThat(reportExporter).isNotNull();
         assertThat(processExiter).isNotNull();
+        // H2 (the test database) is reachable, so the real, JPA-backed implementation
+        // should be wired here, not the NoOpPersistenceService fallback.
+        assertThat(persistenceService).isInstanceOf(DefaultPersistenceService.class);
     }
 }

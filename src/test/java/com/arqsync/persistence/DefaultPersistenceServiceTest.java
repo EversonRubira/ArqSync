@@ -11,6 +11,8 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -22,7 +24,7 @@ import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTest
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = Replace.NONE)
-@Import(DefaultPersistenceService.class)
+@Import(PersistenceServiceConfiguration.class)
 class DefaultPersistenceServiceTest {
 
     @Autowired
@@ -56,6 +58,13 @@ class DefaultPersistenceServiceTest {
     }
 
     @Test
+    // @DataJpaTest wraps each test in its own ambient transaction by default, which
+    // keeps a Hibernate Session open throughout the test regardless of whether the
+    // production code's own @Transactional boundaries actually engage - masking a
+    // real self-invocation bug this exact scenario used to trigger (see
+    // PersistenceWriter's Javadoc). Suspending it here makes this test exercise the
+    // real per-call transaction boundaries, like a real run does.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void secondScanOfTheSamePathReusesTheProjectAndAddsANewAnalysis() {
         persistenceService.save(projectScan("/repo/same-path"), emptyAnalysisResult());
         Long firstProjectId = projectRepository.findByPath("/repo/same-path").orElseThrow().getId();
@@ -65,6 +74,14 @@ class DefaultPersistenceServiceTest {
 
         assertThat(secondProjectId).isEqualTo(firstProjectId);
         assertThat(analysisRepository.findAll()).hasSize(2);
+
+        // Unlike every other test in this class, this one suspends the ambient test
+        // transaction (above), so its writes are real commits, not auto-rolled-back -
+        // clean up explicitly so they don't leak into other tests sharing this H2
+        // instance (Surefire reuses one JVM/one in-memory database across test classes
+        // by default).
+        analysisRepository.deleteAll();
+        projectRepository.deleteAll();
     }
 
     @Test
