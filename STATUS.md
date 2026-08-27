@@ -28,13 +28,13 @@
 | PRD | ✅ Concluído | [`docs/prd/PRD-arqsync.md`](docs/prd/PRD-arqsync.md) |
 | Spec do Scanner | ✅ Concluída | [`docs/specs/SPEC-scanner.md`](docs/specs/SPEC-scanner.md) |
 | Spec do Analyzer | ✅ Concluída | [`docs/specs/SPEC-analyzer.md`](docs/specs/SPEC-analyzer.md) |
-| Spec do Persistence | ⏳ Pendente | — |
+| Spec do Persistence | ✅ Concluída | [`docs/specs/SPEC-persistence.md`](docs/specs/SPEC-persistence.md) |
 | Spec do Exporter | ⏳ Pendente | — |
 | Spec do CLI | ⏳ Pendente | — |
 
 ## Próximo passo imediato
 
-**Spec do Persistence** — schema e entidades, cobrindo a persistência do resultado de cada scan (sem interface de consulta histórica no v1, mas com schema pronto para suportar histórico futuro).
+**Spec do Exporter** — geração de `report.json`/`report.html` (diagrama Mermaid, ciclos, violações, métricas) a partir do `AnalysisResult`.
 
 ---
 
@@ -46,6 +46,9 @@ Consolidadas das seções de Pendências das Specs já escritas:
 - **Colisão de nomes de pacote em projeto multi-módulo:** se dois módulos declararem o mesmo pacote totalmente qualificado, o Scanner os funde em uma única `PackageScan` — comportamento aceito no v1, não validado contra um projeto multi-módulo real.
 - **Classes aninhadas:** deliberadamente fora do v1 — não geram `ClassScan` próprio; revisitar apenas se uma métrica futura precisar delas.
 - **Paralelização futura do Scanner:** adiada por decisão (sem paralelismo no v1); revisitar apenas com evidência real de gargalo de performance, especialmente para projetos fora da faixa alvo (>500 classes).
+- **Atualização de `Project` (nome/URL) em caminho diferente:** fora do v1 — hoje um `path` diferente gera um `Project` novo, sem vínculo com o anterior.
+- **Deduplicação de `Analysis`** (mesmo commit/estado escaneado duas vezes): fora do v1 — modelo é puramente aditivo, sem detecção de "nada mudou".
+- **Histórico com interface de consulta** (diffs, gráficos de evolução): fora do v1, aguardando uma futura extensão do Exporter/CLI — o schema do Persistence já é compatível, mas nenhuma consulta é implementada ainda.
 
 ---
 
@@ -54,3 +57,4 @@ Consolidadas das seções de Pendências das Specs já escritas:
 - PRD: [`docs/prd/PRD-arqsync.md`](docs/prd/PRD-arqsync.md)
 - Spec do Scanner: [`docs/specs/SPEC-scanner.md`](docs/specs/SPEC-scanner.md)
 - Spec do Analyzer: [`docs/specs/SPEC-analyzer.md`](docs/specs/SPEC-analyzer.md)
+- Spec do Persistence: [`docs/specs/SPEC-persistence.md`](docs/specs/SPEC-persistence.md)
