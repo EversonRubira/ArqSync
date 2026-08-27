@@ -13,6 +13,10 @@ spring:
     # unavailable database doesn't need to block startup on its own.
     hikari:
       initialization-fail-timeout: -1
+      # Fail fast (default is 30s) if the database is genuinely unreachable — Flyway's
+      # migration attempt at startup still blocks context refresh either way (known
+      # gap, see STATUS.md), but a ~3s failure with a clean message beats a 30s hang.
+      connection-timeout: 3000
   jpa:
     # Flyway is the single source of truth for the schema (SPEC-persistence.md, 2.8) —
     # Hibernate only validates, never generates or alters DDL.
@@ -21,3 +25,4 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    connect-retries: 0
