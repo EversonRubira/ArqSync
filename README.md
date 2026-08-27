@@ -12,6 +12,7 @@ ArqSync escaneia o código-fonte de um projeto Java, analisa suas dependências 
 ## Funcionalidades (v1)
 
 - Scan de código-fonte Java, sem dependência de build tool do projeto analisado (Maven/Gradle)
+- Análise a partir de um caminho local ou de uma URL de repositório Git público (clone automático)
 - Detecção de ciclos de dependência entre pacotes
 - Detecção de violação de camadas por convenção de nomenclatura (`controller`, `service`, `repository`, `domain`)
 - Geração de relatórios em `report.json` e `report.html`
@@ -25,14 +26,51 @@ ArqSync escaneia o código-fonte de um projeto Java, analisa suas dependências 
 
 ## Instalação e uso
 
+### Build
+
 ```bash
 git clone https://github.com/EversonRubira/ArqSync.git
 cd ArqSync
 ./mvnw clean package
+```
+
+### Uso
+
+**Análise local** — escaneia um projeto Java existente no disco:
+
+```bash
 java -jar target/arqsync.jar /caminho/do/projeto
 ```
 
-Os relatórios são gerados em `arqsync-reports/`.
+**Análise remota** — clona e escaneia um repositório público (GitHub, GitLab, Bitbucket):
+
+```bash
+java -jar target/arqsync.jar https://github.com/usuario/projeto.git
+```
+
+Para manter o clone após a análise (depuração), adicione a flag `--keep`:
+
+```bash
+java -jar target/arqsync.jar https://github.com/usuario/projeto.git --keep
+```
+
+**Limitações (análise remota):**
+- Apenas repositórios públicos
+- Tamanho máximo: 100 MB
+- Máximo de 10.000 arquivos `.java`
+- Timeout de clone: 5 minutos
+- Timeout total da operação: 10 minutos
+
+### Saída
+
+Os relatórios são gerados em `arqsync-reports/`:
+
+```
+arqsync-reports/
+└── 2026-08-27-15-30-00/
+    ├── report.json   # dados estruturados
+    └── report.html   # relatório visual com diagrama Mermaid
+```
 
 ## Arquitetura
 
