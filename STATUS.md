@@ -7,7 +7,7 @@
 
 ## Fase atual
 
-**Documentação/design — todas as Specs técnicas concluídas.** Nenhum código de produção foi escrito ainda. Com Scanner, Analyzer, Persistence, Exporter e CLI especificados, o próximo passo é a fase de implementação.
+**Implementação — Scanner concluído.** Todas as Specs técnicas estão prontas; o Scanner (`com.arqsync.scanner`) é o primeiro componente implementado e testado (build Maven verificado: `mvn test` com sucesso, 15/15 testes).
 
 ---
 
@@ -34,9 +34,19 @@
 
 Todas as Specs técnicas do v1 estão concluídas.
 
+## Implementação
+
+| Componente | Status | Local |
+|---|---|---|
+| Scanner (`com.arqsync.scanner`) | ✅ Implementado, testado (`mvn test` verde) | [`src/main/java/com/arqsync/scanner`](src/main/java/com/arqsync/scanner) |
+| Analyzer | ⏳ Pendente | — |
+| Persistence | ⏳ Pendente | — |
+| Exporter | ⏳ Pendente | — |
+| CLI | ⏳ Pendente | — |
+
 ## Próximo passo imediato
 
-**Implementação.** Não há mais Specs pendentes — o próximo passo é começar a escrever código de produção, componente por componente, seguindo a ordem já usada nas Specs (Scanner → Analyzer → Persistence → Exporter → CLI).
+**Implementação do Analyzer** (`com.arqsync.analyzer`), consumindo o `ProjectScan` já produzido pelo Scanner — seguindo a ordem já usada nas Specs (Scanner → Analyzer → Persistence → Exporter → CLI).
 
 ---
 
@@ -54,6 +64,8 @@ Consolidadas das seções de Pendências das Specs já escritas:
 - **Customização de templates HTML** (tema escuro, branding), **geração de PDF/outros formatos** e **upload automático para S3/cloud**: fora do v1 (Spec do Exporter).
 - **Flags de linha de comando** (`--help`, `--verbose`, `--output-dir`), **modo silencioso**, **saída via stdout**, **paralelismo entre etapas** e **modo "apenas JSON"/"apenas HTML"**: fora do v1 (Spec do CLI) — adicionar apenas com fricção real de uso.
 - **Rename de `CommandLineRunner`:** o nome pedido na Spec do CLI colide com `org.springframework.boot.CommandLineRunner`; recomendado renomear (ex.: `ArqSyncPipelineRunner`) na implementação.
+- **Achado da implementação do Scanner:** `StaticJavaParser` usa por padrão um `LanguageLevel` antigo, que rejeita `record`/`sealed` (sintaxe Java 17+ citada como risco no PRD, seção 8). Corrigido configurando `ParserConfiguration.LanguageLevel.JAVA_21` explicitamente em `DefaultJavaParserAdapter` — descoberto por um teste real, não estava previsto na Spec.
+- **Cenário de denylist do Scanner não é uma fixture versionada:** um diretório literal `.git` não pode ser commitado normalmente (Git o trata como fronteira de outro repositório). O teste de denylist monta esse cenário programaticamente via `@TempDir`, em vez de usar `src/test/resources/fixtures/scanner/build-dirs/` como a Spec original previa — a Spec do Scanner já foi atualizada para refletir isso.
 
 ---
 

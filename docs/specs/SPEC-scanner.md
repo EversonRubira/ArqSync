@@ -235,8 +235,9 @@ O Scanner é o único componente do pipeline do ArqSync que faz I/O real (leitur
 | `syntax-error/` | Um ou mais arquivos com erro de sintaxe, misturados com arquivos válidos |
 | `multiple-classes-per-file/` | Arquivo com mais de um tipo top-level |
 | `default-package/` | Arquivo sem declaração `package` |
-| `build-dirs/` | Diretórios `target`/`build`/`.git`/`.idea`/`node_modules`/`out` presentes, com `.java` "plantado" dentro para provar que são ignorados |
 | `empty-project/` | Diretório existente sem nenhum arquivo `.java` |
+
+O cenário de denylist (diretórios `target`/`build`/`.git`/`.idea`/`node_modules`/`out`, com `.java` "plantado" dentro para provar que são ignorados) **não** é uma fixture versionada — um diretório literal `.git` não pode ser commitado normalmente (o Git o trata como fronteira de outro repositório, não como um diretório comum). Esse cenário é montado programaticamente dentro do próprio teste, via `@TempDir`.
 
 ### Casos de teste por componente
 
@@ -254,7 +255,7 @@ O Scanner é o único componente do pipeline do ArqSync que faz I/O real (leitur
 - `syntax-error/` → `ProjectScan` contém pacotes/classes dos arquivos válidos e um `ScanError` por arquivo inválido; scan não interrompido.
 - `multiple-classes-per-file/` → todas as classes do arquivo aparecem no `PackageScan` correto.
 - `default-package/` → uma `PackageScan` com `name = ""` contendo a(s) classe(s) correspondente(s).
-- `build-dirs/` → nenhuma classe "plantada" dentro de `target`/`build`/`.git`/`.idea`/`node_modules`/`out` aparece no resultado.
+- Denylist (`target`/`build`/`.git`/`.idea`/`node_modules`/`out`, montado via `@TempDir`) → nenhuma classe "plantada" dentro desses diretórios aparece no resultado.
 - `empty-project/` → `ProjectScan` com `packages` e `errors` vazios, sem exceção.
 - Caminho inexistente ou que não é diretório → `InvalidProjectPathException`.
 
