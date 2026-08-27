@@ -7,7 +7,7 @@
 
 ## Fase atual
 
-**Implementação — Scanner concluído.** Todas as Specs técnicas estão prontas; o Scanner (`com.arqsync.scanner`) é o primeiro componente implementado e testado (build Maven verificado: `mvn test` com sucesso, 15/15 testes).
+**Implementação — Scanner e Analyzer concluídos.** Todas as Specs técnicas estão prontas; Scanner (`com.arqsync.scanner`) e Analyzer (`com.arqsync.analyzer`) estão implementados e testados (`./mvnw verify` verde, 41/41 testes, gate de cobertura JaCoCo ≥70% aplicado).
 
 ---
 
@@ -40,15 +40,15 @@ Todas as Specs técnicas do v1 estão concluídas, incluindo a estratégia de te
 
 | Componente | Status | Local |
 |---|---|---|
-| Scanner (`com.arqsync.scanner`) | ✅ Implementado, testado (`./mvnw verify` verde, cobertura JaCoCo ≥70% já aplicada como gate) | [`src/main/java/com/arqsync/scanner`](src/main/java/com/arqsync/scanner) |
-| Analyzer | ⏳ Pendente | — |
+| Scanner (`com.arqsync.scanner`) | ✅ Implementado, testado | [`src/main/java/com/arqsync/scanner`](src/main/java/com/arqsync/scanner) |
+| Analyzer (`com.arqsync.analyzer`) | ✅ Implementado, testado | [`src/main/java/com/arqsync/analyzer`](src/main/java/com/arqsync/analyzer) |
 | Persistence | ⏳ Pendente | — |
 | Exporter | ⏳ Pendente | — |
 | CLI | ⏳ Pendente | — |
 
 ## Próximo passo imediato
 
-**Implementação do Analyzer** (`com.arqsync.analyzer`), consumindo o `ProjectScan` já produzido pelo Scanner — seguindo a ordem já usada nas Specs (Scanner → Analyzer → Persistence → Exporter → CLI).
+**Implementação do Persistence** (`com.arqsync.persistence`), consumindo `ProjectScan` + `AnalysisResult` já produzidos pelo Scanner e pelo Analyzer — seguindo a ordem já usada nas Specs (Scanner → Analyzer → Persistence → Exporter → CLI).
 
 ---
 
@@ -68,6 +68,7 @@ Consolidadas das seções de Pendências das Specs já escritas:
 - **Rename de `CommandLineRunner`:** o nome pedido na Spec do CLI colide com `org.springframework.boot.CommandLineRunner`; recomendado renomear (ex.: `ArqSyncPipelineRunner`) na implementação.
 - **Achado da implementação do Scanner:** `StaticJavaParser` usa por padrão um `LanguageLevel` antigo, que rejeita `record`/`sealed` (sintaxe Java 17+ citada como risco no PRD, seção 8). Corrigido configurando `ParserConfiguration.LanguageLevel.JAVA_21` explicitamente em `DefaultJavaParserAdapter` — descoberto por um teste real, não estava previsto na Spec.
 - **Cenário de denylist do Scanner não é uma fixture versionada:** um diretório literal `.git` não pode ser commitado normalmente (Git o trata como fronteira de outro repositório). O teste de denylist monta esse cenário programaticamente via `@TempDir`, em vez de usar `src/test/resources/fixtures/scanner/build-dirs/` como a Spec original previa — a Spec do Scanner já foi atualizada para refletir isso.
+- **Achado da implementação do Analyzer:** a Spec (2.6) descreve resolver o pacote candidato "removendo o último segmento", mas não detalha o caso de imports estáticos (`static com.acme.x.Y.metodo`), onde é preciso remover **dois** segmentos (classe + membro), não um — implementado em `DefaultDependencyGraphBuilder`, coberto por teste (`staticImportResolvesToTheDeclaringClassPackage`). Não chegou a ser registrado como pendência explícita na Spec do Analyzer; documentado aqui.
 
 ---
 
