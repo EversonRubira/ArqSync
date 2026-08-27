@@ -18,6 +18,7 @@
 - **Escopo do v1:** detecção de ciclos de dependência entre pacotes e violação de camadas por convenção de nomenclatura fixa (`controller`, `service`, `repository`, `domain`); saída em `report.json` + `report.html`. Métricas de qualidade estrutural (coesão/LCOM, instabilidade de Robert Martin), histórico/evolução entre execuções, suporte a outras linguagens, plugins de IDE, CI/CD e configuração customizável de camadas ficam fora do v1. Ver `docs/prd/PRD-arqsync.md`, seção 3.
 - **Prioridade do banco:** persistência é **P1 em prioridade de valor** (o relatório funciona sem ela) mas **P0 em prioridade de execução** — implementada já no v1 porque a estrutura (schema, entidades, `docker-compose.yml`) já está planejada, e adiar geraria retrabalho maior do que implementar agora (PRD, seção 5).
 - **Persistência é opcional em runtime:** se o banco não estiver disponível, o scan roda e os relatórios são gerados normalmente (resiliência sem banco — PRD, P0 item 8).
+- **Testes:** pirâmide ~70% unitário / ~20% integração / ~10% e2e; `./mvnw test` (unitários, Surefire, `*Test`) e `./mvnw verify` (+ integração via Failsafe, `*IT`, + gate de cobertura JaCoCo ≥70% de linhas). Maven Wrapper (`./mvnw`) adicionado ao repositório. Ver `docs/specs/SPEC-testing.md`.
 
 ---
 
@@ -31,14 +32,15 @@
 | Spec do Persistence | ✅ Concluída | [`docs/specs/SPEC-persistence.md`](docs/specs/SPEC-persistence.md) |
 | Spec do Exporter | ✅ Concluída | [`docs/specs/SPEC-exporter.md`](docs/specs/SPEC-exporter.md) |
 | Spec do CLI | ✅ Concluída | [`docs/specs/SPEC-cli.md`](docs/specs/SPEC-cli.md) |
+| Spec de Testes | ✅ Concluída | [`docs/specs/SPEC-testing.md`](docs/specs/SPEC-testing.md) |
 
-Todas as Specs técnicas do v1 estão concluídas.
+Todas as Specs técnicas do v1 estão concluídas, incluindo a estratégia de testes centralizada.
 
 ## Implementação
 
 | Componente | Status | Local |
 |---|---|---|
-| Scanner (`com.arqsync.scanner`) | ✅ Implementado, testado (`mvn test` verde) | [`src/main/java/com/arqsync/scanner`](src/main/java/com/arqsync/scanner) |
+| Scanner (`com.arqsync.scanner`) | ✅ Implementado, testado (`./mvnw verify` verde, cobertura JaCoCo ≥70% já aplicada como gate) | [`src/main/java/com/arqsync/scanner`](src/main/java/com/arqsync/scanner) |
 | Analyzer | ⏳ Pendente | — |
 | Persistence | ⏳ Pendente | — |
 | Exporter | ⏳ Pendente | — |
@@ -77,3 +79,4 @@ Consolidadas das seções de Pendências das Specs já escritas:
 - Spec do Persistence: [`docs/specs/SPEC-persistence.md`](docs/specs/SPEC-persistence.md)
 - Spec do Exporter: [`docs/specs/SPEC-exporter.md`](docs/specs/SPEC-exporter.md)
 - Spec do CLI: [`docs/specs/SPEC-cli.md`](docs/specs/SPEC-cli.md)
+- Spec de Testes: [`docs/specs/SPEC-testing.md`](docs/specs/SPEC-testing.md)
