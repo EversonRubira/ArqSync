@@ -2,3 +2,22 @@ logging:
   level:
     root: WARN
     com.arqsync: INFO
+
+spring:
+  datasource:
+    url: ${ARQSYNC_DB_URL:jdbc:postgresql://localhost:5432/arqsync}
+    username: ${ARQSYNC_DB_USER:arqsync}
+    password: ${ARQSYNC_DB_PASSWORD:arqsync}
+    # Persistence is optional at runtime (SPEC-persistence.md, 2.1): defer connection
+    # validation to first actual use instead of failing pool creation eagerly, so an
+    # unavailable database doesn't need to block startup on its own.
+    hikari:
+      initialization-fail-timeout: -1
+  jpa:
+    # Flyway is the single source of truth for the schema (SPEC-persistence.md, 2.8) —
+    # Hibernate only validates, never generates or alters DDL.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true

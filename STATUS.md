@@ -7,7 +7,7 @@
 
 ## Fase atual
 
-**Implementação — Scanner e Analyzer concluídos.** Todas as Specs técnicas estão prontas; Scanner (`com.arqsync.scanner`) e Analyzer (`com.arqsync.analyzer`) estão implementados e testados (`./mvnw verify` verde, 41/41 testes, gate de cobertura JaCoCo ≥70% aplicado).
+**Implementação — Scanner, Analyzer e Persistence concluídos.** Todas as Specs técnicas estão prontas; Scanner (`com.arqsync.scanner`), Analyzer (`com.arqsync.analyzer`) e Persistence (`com.arqsync.persistence`) estão implementados e testados (`./mvnw test` verde, 50/50 testes, cobertura ~96% de linhas). `./mvnw verify` só é validável fora deste ambiente de sessão — ver Pendências.
 
 ---
 
@@ -42,13 +42,13 @@ Todas as Specs técnicas do v1 estão concluídas, incluindo a estratégia de te
 |---|---|---|
 | Scanner (`com.arqsync.scanner`) | ✅ Implementado, testado | [`src/main/java/com/arqsync/scanner`](src/main/java/com/arqsync/scanner) |
 | Analyzer (`com.arqsync.analyzer`) | ✅ Implementado, testado | [`src/main/java/com/arqsync/analyzer`](src/main/java/com/arqsync/analyzer) |
-| Persistence | ⏳ Pendente | — |
+| Persistence (`com.arqsync.persistence`) | ✅ Implementado, testado (H2) — `PersistenceIT` (Testcontainers) não executável neste ambiente de sessão, sem daemon Docker | [`src/main/java/com/arqsync/persistence`](src/main/java/com/arqsync/persistence) |
 | Exporter | ⏳ Pendente | — |
 | CLI | ⏳ Pendente | — |
 
 ## Próximo passo imediato
 
-**Implementação do Persistence** (`com.arqsync.persistence`), consumindo `ProjectScan` + `AnalysisResult` já produzidos pelo Scanner e pelo Analyzer — seguindo a ordem já usada nas Specs (Scanner → Analyzer → Persistence → Exporter → CLI).
+**Implementação do Exporter** (`com.arqsync.exporter`), consumindo `ProjectScan` + `AnalysisResult` para gerar `report.json` (Java/Jackson) e `report.html` (script Python/Jinja2) — seguindo a ordem já usada nas Specs (Scanner → Analyzer → Persistence → Exporter → CLI).
 
 ---
 
@@ -69,6 +69,9 @@ Consolidadas das seções de Pendências das Specs já escritas:
 - **Achado da implementação do Scanner:** `StaticJavaParser` usa por padrão um `LanguageLevel` antigo, que rejeita `record`/`sealed` (sintaxe Java 17+ citada como risco no PRD, seção 8). Corrigido configurando `ParserConfiguration.LanguageLevel.JAVA_21` explicitamente em `DefaultJavaParserAdapter` — descoberto por um teste real, não estava previsto na Spec.
 - **Cenário de denylist do Scanner não é uma fixture versionada:** um diretório literal `.git` não pode ser commitado normalmente (Git o trata como fronteira de outro repositório). O teste de denylist monta esse cenário programaticamente via `@TempDir`, em vez de usar `src/test/resources/fixtures/scanner/build-dirs/` como a Spec original previa — a Spec do Scanner já foi atualizada para refletir isso.
 - **Achado da implementação do Analyzer:** a Spec (2.6) descreve resolver o pacote candidato "removendo o último segmento", mas não detalha o caso de imports estáticos (`static com.acme.x.Y.metodo`), onde é preciso remover **dois** segmentos (classe + membro), não um — implementado em `DefaultDependencyGraphBuilder`, coberto por teste (`staticImportResolvesToTheDeclaringClassPackage`). Não chegou a ser registrado como pendência explícita na Spec do Analyzer; documentado aqui.
+- **`PersistenceIT` (Testcontainers) não verificado nesta sessão:** o ambiente de sessão não tem um daemon Docker rodando (só o CLI do Docker está instalado) — `./mvnw verify` falha exclusivamente nesse teste (`IllegalStateException: Could not find a valid Docker environment`), não por bug de código. `./mvnw test` (50/50, sem Testcontainers) está verde. Rodar `./mvnw verify` em um ambiente com Docker (CI ou máquina local) antes de considerar o Persistence totalmente validado contra o schema Postgres real.
+- **Gap de resiliência "sem banco" no nível da aplicação Spring, não apenas do `PersistenceService`:** a Spec do Persistence (2.1) garante que `save(...)` nunca lança exceção, mas isso só cobre falhas *durante* uma chamada — com `spring-boot-starter-data-jpa` + Flyway agora no classpath, se o Postgres estiver genuinamente indisponível, o **contexto Spring inteiro pode falhar ao subir** (Flyway tenta migrar no startup), o que impediria até o Scanner/Analyzer/Exporter de rodar — contradizendo a resiliência "sem banco" do PRD (P0, item 8) num nível acima do que esta Spec cobre. Mitigação parcial já aplicada (`spring.datasource.hikari.initialization-fail-timeout: -1`, adia a validação de conexão do pool), mas o Flyway em si ainda tenta conectar no startup. Resolver isso é uma decisão de arquitetura do bootstrap da aplicação — provavelmente da Spec/implementação do CLI, não do Persistence isoladamente.
+- **Migration Flyway criada nesta implementação, não pré-existente:** o pedido presumia `V1__initial_schema.sql` já em `src/main/resources/db/migration/`, mas o arquivo não existia no repositório — foi criado agora com o conteúdo da Spec do Persistence (seção 3.2), com o nome `V1__initial_schema.sql` (a Spec usa `V1__init.sql`; mantido o nome pedido nesta tarefa).
 
 ---
 
