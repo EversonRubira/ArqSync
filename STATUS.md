@@ -7,13 +7,13 @@
 
 ## Fase atual
 
-**Documentação/design.** Nenhum código de produção foi escrito ainda — o projeto está na fase de Specs técnicas (Spec-Driven Development), formalizando o desenho de cada componente antes de implementar.
+**Documentação/design — todas as Specs técnicas concluídas.** Nenhum código de produção foi escrito ainda. Com Scanner, Analyzer, Persistence, Exporter e CLI especificados, o próximo passo é a fase de implementação.
 
 ---
 
 ## Decisões fechadas (não revisitar)
 
-- **Stack:** Java 21, JavaParser 3.26.2 (parsing), PostgreSQL (produção/desenvolvimento) com H2 em memória para testes, Mermaid.js via CDN (diagrama do relatório), CLI como ponto de entrada único (`java -jar arqsync.jar /caminho/do/projeto`). **Python 3 + Jinja2** também são exigidos em runtime para gerar o `report.html` (Spec do Exporter) — ainda não refletido nas Restrições do PRD (ver Pendências).
+- **Stack:** Java 21, JavaParser 3.26.2 (parsing), PostgreSQL (produção/desenvolvimento) com H2 em memória para testes, Mermaid.js via CDN (diagrama do relatório), CLI como ponto de entrada único (`java -jar arqsync.jar /caminho/do/projeto`). Python 3.8+ com Jinja2 também é exigido em runtime para gerar o `report.html` (com fallback gracioso para apenas `report.json`) — já refletido no PRD, seção 7.
 - **Arquitetura:** pipeline sequencial de componentes — Scanner → Analyzer → Persistence → Exporter → CLI — sem framework de orquestração, sem depender de build tool do projeto escaneado (Maven/Gradle).
 - **Escopo do v1:** detecção de ciclos de dependência entre pacotes e violação de camadas por convenção de nomenclatura fixa (`controller`, `service`, `repository`, `domain`); saída em `report.json` + `report.html`. Métricas de qualidade estrutural (coesão/LCOM, instabilidade de Robert Martin), histórico/evolução entre execuções, suporte a outras linguagens, plugins de IDE, CI/CD e configuração customizável de camadas ficam fora do v1. Ver `docs/prd/PRD-arqsync.md`, seção 3.
 - **Prioridade do banco:** persistência é **P1 em prioridade de valor** (o relatório funciona sem ela) mas **P0 em prioridade de execução** — implementada já no v1 porque a estrutura (schema, entidades, `docker-compose.yml`) já está planejada, e adiar geraria retrabalho maior do que implementar agora (PRD, seção 5).
@@ -30,11 +30,13 @@
 | Spec do Analyzer | ✅ Concluída | [`docs/specs/SPEC-analyzer.md`](docs/specs/SPEC-analyzer.md) |
 | Spec do Persistence | ✅ Concluída | [`docs/specs/SPEC-persistence.md`](docs/specs/SPEC-persistence.md) |
 | Spec do Exporter | ✅ Concluída | [`docs/specs/SPEC-exporter.md`](docs/specs/SPEC-exporter.md) |
-| Spec do CLI | ⏳ Pendente | — |
+| Spec do CLI | ✅ Concluída | [`docs/specs/SPEC-cli.md`](docs/specs/SPEC-cli.md) |
+
+Todas as Specs técnicas do v1 estão concluídas.
 
 ## Próximo passo imediato
 
-**Spec do CLI** — ponto de entrada único, orquestrando Scanner → Analyzer → Persistence → Exporter.
+**Implementação.** Não há mais Specs pendentes — o próximo passo é começar a escrever código de produção, componente por componente, seguindo a ordem já usada nas Specs (Scanner → Analyzer → Persistence → Exporter → CLI).
 
 ---
 
@@ -49,8 +51,9 @@ Consolidadas das seções de Pendências das Specs já escritas:
 - **Atualização de `Project` (nome/URL) em caminho diferente:** fora do v1 — hoje um `path` diferente gera um `Project` novo, sem vínculo com o anterior.
 - **Deduplicação de `Analysis`** (mesmo commit/estado escaneado duas vezes): fora do v1 — modelo é puramente aditivo, sem detecção de "nada mudou".
 - **Histórico com interface de consulta** (diffs, gráficos de evolução): fora do v1, aguardando uma futura extensão do Exporter/CLI — o schema do Persistence já é compatível, mas nenhuma consulta é implementada ainda.
-- **Python como nova dependência de ambiente:** a Spec do Exporter exige Python 3 + Jinja2 para gerar o `report.html`; o PRD (seção 7) só documenta Java 21 como restrição de ambiente — recomenda-se atualizar o PRD para refletir essa exigência real do v1.
 - **Customização de templates HTML** (tema escuro, branding), **geração de PDF/outros formatos** e **upload automático para S3/cloud**: fora do v1 (Spec do Exporter).
+- **Flags de linha de comando** (`--help`, `--verbose`, `--output-dir`), **modo silencioso**, **saída via stdout**, **paralelismo entre etapas** e **modo "apenas JSON"/"apenas HTML"**: fora do v1 (Spec do CLI) — adicionar apenas com fricção real de uso.
+- **Rename de `CommandLineRunner`:** o nome pedido na Spec do CLI colide com `org.springframework.boot.CommandLineRunner`; recomendado renomear (ex.: `ArqSyncPipelineRunner`) na implementação.
 
 ---
 
@@ -61,3 +64,4 @@ Consolidadas das seções de Pendências das Specs já escritas:
 - Spec do Analyzer: [`docs/specs/SPEC-analyzer.md`](docs/specs/SPEC-analyzer.md)
 - Spec do Persistence: [`docs/specs/SPEC-persistence.md`](docs/specs/SPEC-persistence.md)
 - Spec do Exporter: [`docs/specs/SPEC-exporter.md`](docs/specs/SPEC-exporter.md)
+- Spec do CLI: [`docs/specs/SPEC-cli.md`](docs/specs/SPEC-cli.md)

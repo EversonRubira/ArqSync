@@ -120,6 +120,7 @@ Esquema de prioridade: **P0** (essencial — sem isso não há v1) / **P1** (des
 
 ### Restrições
 - Java 21 obrigatório no ambiente de execução
+- Python 3.8+ com Jinja2 instalado é necessário para gerar o `report.html` — se não disponível, o v1 gera apenas o `report.json` (fallback)
 - PostgreSQL como banco de produção/desenvolvimento (via Docker Compose ou variáveis de ambiente); H2 em memória para testes — banco é dependência opcional, com fallback gracioso (o scan roda e gera os relatórios mesmo sem banco disponível)
 - Conexão com internet necessária para visualizar o `report.html`, pois o Mermaid.js é carregado via CDN
 - Alvo de performance: projetos de porte pequeno/médio (50–500 classes). Projetos muito grandes (>10k classes) podem ter desempenho degradado no v1 — otimização fica para depois
