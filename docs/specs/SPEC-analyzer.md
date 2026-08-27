@@ -316,8 +316,8 @@ Consistente com o PRD (seção 3):
 
 ## 8. Pendências
 
-- **Contrato de entrada não confirmado:** este repositório não contém `STATUS.md` nem uma Spec do Scanner commitada — os modelos `ProjectScan`/`PackageScan`/`ClassScan`/`ScanError` usados aqui (seção 3.1) são inferidos do PRD e do enunciado desta tarefa. Antes de implementar o Analyzer, confirmar esses tipos contra a Spec real do Scanner (nomes de campo, se imports incluem ou não static/wildcard já normalizados, etc.).
-- **Imports estáticos e wildcard:** assumido que `import static com.acme.x.Y.method` resolve removendo os dois últimos segmentos (classe + membro), e que `import com.acme.x.*` resolve removendo apenas o `*`. Ambos os casos devem ser validados com exemplos reais assim que o Scanner estiver disponível.
+- ~~**Contrato de entrada não confirmado**~~ — **Resolvido:** a Spec do Scanner (`docs/specs/SPEC-scanner.md`) confirma exatamente os modelos `ProjectScan`/`PackageScan`/`ClassScan`/`ScanError` assumidos aqui.
+- **Imports estáticos e wildcard:** confirmado pela Spec do Scanner (seção 2.5) — `imports` contém o texto bruto do import, com `import com.acme.x.*` preservando o sufixo `.*` e `import static com.acme.x.Y.method` preservando o prefixo `static `. A resolução (remover último segmento para achar o pacote candidato) permanece responsabilidade do Analyzer, como descrito em 2.6.
 - **Limite de ciclos reportados por componente (proposto: 10):** valor não validado empiricamente; ajustar com base em projetos reais de teste.
 - **Regra de `domain` como alvo sempre permitido:** decisão tomada para reduzir falsos positivos (risco prioritário do PRD), mas vale validar com o autor se reflete a intenção real de "domain" nesses projetos, ou se em algum caso `domain` deveria ser mais restrito.
 - **Criação de `STATUS.md`:** o PRD (seção 8 e 9) trata `STATUS.md` como ação imediata após o PRD e pré-requisito de visibilidade de progresso — ainda não existe neste repositório. Recomendo criá-lo (fora do escopo desta Spec) antes de iniciar a implementação do Analyzer.
