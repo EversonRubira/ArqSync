@@ -16,6 +16,7 @@ import com.arqsync.scanner.ProjectScan;
 import com.arqsync.scanner.ScannerService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.ApplicationArguments;
 
 import java.io.IOException;
@@ -30,6 +31,7 @@ import java.util.Objects;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -46,8 +48,10 @@ class ArqSyncPipelineRunnerTest {
     private final ReportExporter reportExporter = mock(ReportExporter.class);
     private final ProcessExiter processExiter = mock(ProcessExiter.class);
 
+    private final GitRepositoryResolver gitRepositoryResolver = new GitRepositoryResolver();
+
     private final ArqSyncPipelineRunner runner = new ArqSyncPipelineRunner(
-            scannerService, dependencyAnalyzer, persistenceService, reportExporter, processExiter
+            gitRepositoryResolver, scannerService, dependencyAnalyzer, persistenceService, reportExporter, processExiter
     );
 
     private Path createdOutputDir;
@@ -222,7 +226,7 @@ class ArqSyncPipelineRunnerTest {
                 new DefaultMetricsCalculator()
         );
         ArqSyncPipelineRunner realishRunner = new ArqSyncPipelineRunner(
-                realScanner, realAnalyzer, persistenceService, reportExporter, processExiter
+                gitRepositoryResolver, realScanner, realAnalyzer, persistenceService, reportExporter, processExiter
         );
         Path fixture = Paths.get(Objects.requireNonNull(
                 getClass().getClassLoader().getResource("fixtures/scanner/valid-project")
@@ -243,5 +247,115 @@ class ArqSyncPipelineRunnerTest {
         verify(reportExporter).export(any(), any(), any());
         verify(processExiter, never()).exit(anyInt());
         assertThat(createdOutputDir.resolve("report.html")).exists();
+    }
+
+    private static final String GIT_URL = "https://example.com/user/repo.git";
+
+    private ApplicationArguments argsWith(String nonOptionArg, boolean keep) {
+        ApplicationArguments args = mock(ApplicationArguments.class);
+        when(args.getNonOptionArgs()).thenReturn(List.of(nonOptionArg));
+        when(args.containsOption("keep")).thenReturn(keep);
+        return args;
+    }
+
+    private ArqSyncPipelineRunner runnerWithMockedGitResolver(GitRepositoryResolver mockResolver) {
+        return new ArqSyncPipelineRunner(
+                mockResolver, scannerService, dependencyAnalyzer, persistenceService, reportExporter, processExiter
+        );
+    }
+
+    @Test
+    void gitUrlIsClonedScannedAndTempDirCleanedUpOnSuccess(@TempDir Path clonedDir) throws IOException {
+        GitRepositoryResolver mockResolver = mock(GitRepositoryResolver.class);
+        when(mockResolver.resolve(GIT_URL)).thenReturn(clonedDir);
+        ArqSyncPipelineRunner urlRunner = runnerWithMockedGitResolver(mockResolver);
+
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(clonedDir)).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            Path outputDir = invocation.getArgument(2);
+            createdOutputDir = outputDir;
+            Files.createDirectories(outputDir);
+            Files.writeString(outputDir.resolve("report.json"), "{}");
+            return null;
+        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any());
+
+        urlRunner.run(argsWith(GIT_URL, false));
+
+        verify(mockResolver).resolve(GIT_URL);
+        verify(scannerService).scan(clonedDir);
+        verify(processExiter, never()).exit(anyInt());
+        assertThat(clonedDir).doesNotExist();
+    }
+
+    @Test
+    void gitUrlTempDirIsCleanedUpEvenWhenAnalyzerFails(@TempDir Path clonedDir) {
+        GitRepositoryResolver mockResolver = mock(GitRepositoryResolver.class);
+        when(mockResolver.resolve(anyString())).thenReturn(clonedDir);
+        ArqSyncPipelineRunner urlRunner = runnerWithMockedGitResolver(mockResolver);
+
+        ProjectScan projectScan = aProjectScan();
+        when(scannerService.scan(clonedDir)).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenThrow(new RuntimeException("boom"));
+
+        urlRunner.run(argsWith(GIT_URL, false));
+
+        verify(processExiter).exit(1);
+        assertThat(clonedDir).doesNotExist();
+    }
+
+    @Test
+    void keepFlagPreventsTempDirCleanupAfterSuccess(@TempDir Path clonedDir) throws IOException {
+        GitRepositoryResolver mockResolver = mock(GitRepositoryResolver.class);
+        when(mockResolver.resolve(GIT_URL)).thenReturn(clonedDir);
+        ArqSyncPipelineRunner urlRunner = runnerWithMockedGitResolver(mockResolver);
+
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(clonedDir)).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            Path outputDir = invocation.getArgument(2);
+            createdOutputDir = outputDir;
+            Files.createDirectories(outputDir);
+            Files.writeString(outputDir.resolve("report.json"), "{}");
+            return null;
+        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any());
+
+        urlRunner.run(argsWith(GIT_URL, true));
+
+        verify(processExiter, never()).exit(anyInt());
+        assertThat(clonedDir).exists();
+    }
+
+    @Test
+    void keepFlagAlsoPreventsTempDirCleanupOnFailure(@TempDir Path clonedDir) {
+        GitRepositoryResolver mockResolver = mock(GitRepositoryResolver.class);
+        when(mockResolver.resolve(anyString())).thenReturn(clonedDir);
+        ArqSyncPipelineRunner urlRunner = runnerWithMockedGitResolver(mockResolver);
+
+        ProjectScan projectScan = aProjectScan();
+        when(scannerService.scan(clonedDir)).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenThrow(new RuntimeException("boom"));
+
+        urlRunner.run(argsWith(GIT_URL, true));
+
+        verify(processExiter).exit(1);
+        assertThat(clonedDir).exists();
+    }
+
+    @Test
+    void gitCloneFailureExitsFatalWithoutCallingScannerOrLaterStages() {
+        GitRepositoryResolver mockResolver = mock(GitRepositoryResolver.class);
+        when(mockResolver.resolve(anyString()))
+                .thenThrow(new GitCloneException("Invalid repository URL: " + GIT_URL));
+        ArqSyncPipelineRunner urlRunner = runnerWithMockedGitResolver(mockResolver);
+
+        urlRunner.run(argsWith(GIT_URL, false));
+
+        verify(processExiter).exit(1);
+        verifyNoInteractions(scannerService, dependencyAnalyzer, persistenceService, reportExporter);
     }
 }

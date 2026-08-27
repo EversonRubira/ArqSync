@@ -3,7 +3,7 @@
 > **Status:** Rascunho para revisão
 > **Metodologia:** Spec-Driven Development (SDD)
 > **Autor:** Everson Rubira (com Claude Code)
-> **Última atualização:** 2026-08-27
+> **Última atualização:** 2026-08-27 (entrada via URL de repositório Git)
 
 ---
 
@@ -13,7 +13,7 @@ O CLI é o ponto de entrada do ArqSync e o último componente antes da implement
 
 O CLI não tem lógica própria de domínio — sua única responsabilidade é orquestrar os componentes já especificados e decidir, para cada etapa, se uma falha é fatal (interrompe a execução) ou absorvível (loga e segue). Essa decisão de "o que é fatal" é o núcleo real desta Spec: as quatro etapas não são todas igualmente críticas para o resultado mínimo que o ArqSync promete ao usuário.
 
-O v1 é uma CLI pura de um único argumento, sem flags, sem modo interativo, sem interface gráfica.
+O v1 é uma CLI pura de um único argumento posicional — caminho local **ou** URL de repositório Git —, com uma única flag opcional (`--keep`), sem modo interativo, sem interface gráfica.
 
 ---
 
@@ -142,6 +142,57 @@ public class CommandLineRunner implements ApplicationRunner {
 
 **Recomendação:** renomear para algo como `ArqSyncPipelineRunner` ou `ArqSyncApplicationRunner` na implementação. Mantida a assinatura como especificada nesta Spec (ver seção 3) por ser a decisão já fechada; o rename é uma sugestão de nomenclatura para a fase de implementação, registrada aqui para não ser esquecida.
 
+### 2.11 Entrada via URL de repositório Git
+
+**Decisão:** o argumento posicional único (2.1) aceita, além de um caminho local, uma URL de repositório Git. A detecção é feita por prefixo: se o argumento começar com `http://` ou `https://`, é tratado como URL e clonado antes do scan; caso contrário, o comportamento existente (caminho local) é mantido sem alteração.
+
+**Comportamento (detalhado):**
+
+1. Se o argumento começar com `http://` ou `https://`, tratar como URL.
+2. Clonar o repositório (via JGit, `org.eclipse.jgit`) para um diretório temporário criado com `Files.createTempDirectory("arqsync-clone-")`, com timeout de clone de 5 minutos.
+3. Executar o pipeline (Scanner → Analyzer → Persistence → Exporter) sobre o diretório clonado, exatamente como sobre qualquer caminho local.
+4. Remover o diretório temporário e todo o seu conteúdo após a análise — inclusive em caso de erro em qualquer etapa (garantido por um bloco `finally` em torno do restante do pipeline) —, a menos que a flag `--keep` seja passada.
+
+**Limitações do v1:**
+
+- Apenas repositórios **públicos** são suportados (GitHub, GitLab, Bitbucket ou qualquer host Git acessível por HTTP(S) sem autenticação). Um repositório privado é tratado como falha fatal — não há suporte a credenciais/tokens no v1.
+- Tamanho máximo do clone: **100MB**. Excedido, o clone é descartado (diretório temporário apagado) e a execução termina com erro fatal.
+- Máximo de **10.000 arquivos `.java`** no repositório clonado — mesmo limite de escala já assumido pelo Scanner para projetos locais (ver Spec do Scanner), agora também aplicado ao caso de entrada via URL.
+- Timeout total da análise via URL: **10 minutos**, cobrindo clone + escaneamento (Analyzer/Persistence/Exporter rodam depois, fora dessa janela, com seus próprios tempos de execução já cobertos pelas Specs correspondentes).
+
+**Flag `--keep`:** quando presente, o diretório temporário clonado **não** é removido ao final da execução — útil para depuração (inspecionar o que foi de fato clonado e escaneado). Sem efeito quando o argumento é um caminho local (não há diretório temporário a preservar).
+
+```
+java -jar arqsync.jar https://github.com/usuario/projeto.git --keep
+```
+
+**Tratamento de erros (todos fatais, mesmo padrão de 2.9 — mensagem curta, sem stack trace, `ProcessExiter.exit(1)`):**
+
+- URL sintaticamente inválida (não é uma URI válida, ou o esquema não é `http`/`https`, ou não há host) → erro fatal, sem tentar rede.
+- Repositório privado (JGit recebe falha de autenticação/autorização do host) → erro fatal, mensagem explícita de que só repositórios públicos são suportados no v1.
+- Rede indisponível ou operação de clone/leitura expirando → erro fatal (timeout de clone de 5 minutos, seção acima).
+- Clone excede 100MB, ou o repositório tem mais de 10.000 arquivos `.java` → erro fatal, diretório temporário removido antes de retornar o erro.
+
+**Logging (níveis conforme 2.3):**
+
+- `INFO` — `"Cloning repository from <URL>..."`
+- `INFO` — `"Repository cloned to <tempDir>"`
+- `INFO` — `"Analyzing cloned repository..."`
+- `INFO` — `"Cleaning up temporary directory..."`
+- `WARN` — (somente se `--keep` estiver ativo) `"Temporary directory kept at <tempDir>"`
+
+**Justificativa:**
+- O PRD já cita repositórios remotos como uma forma natural de uso da ferramenta (analisar um projeto sem precisar cloná-lo manualmente primeiro); implementar isso como uma extensão do mesmo argumento posicional único, em vez de uma subcomando/flag separada, mantém a decisão de 2.1 (um argumento, sem flags desnecessárias) intacta — a URL é só outra forma de dizer "onde está o projeto".
+- Reusar o pipeline existente sem nenhuma alteração no Scanner/Analyzer/Persistence/Exporter — o diretório clonado é indistinguível de um caminho local qualquer para essas etapas — evita duplicar lógica ou introduzir um "modo Git" paralelo.
+- Os limites de tamanho/contagem de arquivos/timeout (100MB, 10.000 arquivos, 5 min de clone, 10 min total) protegem contra o caso óbvio de abuso ou engano (apontar para um monorepo gigante) sem exigir configuração — consistente com os limites de escala já assumidos em outras Specs (Scanner, seção 2.8) em vez de tentar suportar qualquer tamanho de repositório no v1.
+- Apenas repositórios públicos no v1: suportar autenticação (tokens, SSH) é uma superfície de segurança significativa (armazenamento de credenciais, HTTPS vs SSH, prompts interativos) sem necessidade demonstrada ainda — featuritis por antecipação, o mesmo risco que 2.1 já rejeita para flags.
+- `--keep` existe porque, sem ele, depurar um problema de scan/análise específico de um projeto clonado exigiria reproduzir o clone manualmente fora da ferramenta — uma flag simples resolve isso sem adicionar um "modo verbose" inteiro (fora do escopo do v1, seção 6).
+
+**Alternativas descartadas:**
+- *Um argumento/flag dedicado para URL (ex.: `--git-url`), separado do caminho local.* Rejeitado: obrigaria o usuário a saber de antemão qual flag usar; a detecção por prefixo (`http://`/`https://`) é inequívoca e não exige nenhuma sintaxe nova.
+- *Suportar repositórios privados via variável de ambiente ou prompt de credenciais.* Rejeitado para o v1: adiciona uma superfície de segurança (armazenamento/transmissão de credenciais) desproporcional ao valor demonstrado até agora; revisitar apenas com um caso de uso real.
+- *Clone raso (`--depth 1`) para reduzir uso de banda/disco.* Não implementado: os limites de tamanho (100MB) e de timeout já mitigam o caso de repositórios grandes de forma suficiente para o v1; adicionar profundidade rasa mudaria o histórico disponível no `.git` clonado sem que isso seja usado por nenhuma etapa do pipeline hoje.
+
 ---
 
 ## 3. Interface Pública
@@ -150,13 +201,14 @@ public class CommandLineRunner implements ApplicationRunner {
 @Component
 public class CommandLineRunner implements ApplicationRunner {
 
+    private final GitRepositoryResolver gitRepositoryResolver;
     private final ScannerService scannerService;
     private final DependencyAnalyzer dependencyAnalyzer;
     private final PersistenceService persistenceService;
     private final ReportExporter reportExporter;
     private final ProcessExiter processExiter;
 
-    // construtor com injeção das cinco dependências acima
+    // construtor com injeção das seis dependências acima
 
     @Override
     public void run(ApplicationArguments args) {
@@ -167,27 +219,38 @@ public class CommandLineRunner implements ApplicationRunner {
 public interface ProcessExiter {
     void exit(int code);
 }
+
+/** Resolve um argumento de URL de repositório Git para um diretório local clonado (ver 2.11). */
+public class GitRepositoryResolver {
+    public static boolean isGitUrl(String argument) { /* ... */ }
+    public Path resolve(String url) { /* ... */ } // lança GitCloneException
+    public static void deleteRecursively(Path dir) { /* ... */ }
+}
+
+public class GitCloneException extends RuntimeException { /* ... */ }
 ```
 
-> Ver 2.10 sobre a recomendação de renomear a classe na implementação.
+> Ver 2.10 sobre a recomendação de renomear a classe na implementação. Ver 2.11 sobre `GitRepositoryResolver`.
 
 ---
 
 ## 4. Fluxo de Execução
 
-1. Valida os argumentos: exatamente um argumento não vazio (o caminho do projeto). Se ausente/vazio, loga `ERROR` ("Uso: java -jar arqsync.jar <caminho-do-projeto>") e sai via `ProcessExiter.exit(1)` — sem chamar nenhum componente do pipeline.
-2. Loga `INFO` ("Scanning project...") e chama `ScannerService.scan(path)`.
+1. Valida os argumentos: exatamente um argumento não vazio (o caminho do projeto ou a URL do repositório), mais a flag opcional `--keep`. Se ausente/vazio, loga `ERROR` ("Uso: java -jar arqsync.jar <caminho-do-projeto | URL-do-repositorio> [--keep]") e sai via `ProcessExiter.exit(1)` — sem chamar nenhum componente do pipeline.
+2. Se o argumento começar com `http://` ou `https://` (`GitRepositoryResolver.isGitUrl(...)`, 2.11): clona e escaneia dentro de um orçamento de 10 minutos (clone + scan). Qualquer falha nessa etapa (URL inválida, repositório privado/inacessível, timeout, limite de tamanho/arquivos excedido) loga `ERROR` com a mensagem da exceção, remove o diretório temporário se já tiver sido criado (a menos que `--keep`), `ProcessExiter.exit(1)`, execução encerrada. Caso contrário, segue para o passo 3 com o `ProjectScan` já obtido.
+3. Se o argumento for um caminho local: loga `INFO` ("Scanning project...") e chama `ScannerService.scan(path)`.
    - Se lançar `InvalidProjectPathException`: loga `ERROR` com a mensagem da exceção, `ProcessExiter.exit(1)`, execução encerrada (2.4).
-3. Loga `INFO` ("Analyzing dependencies...") e chama `DependencyAnalyzer.analyze(projectScan)`.
+5. Loga `INFO` ("Analyzing dependencies...") e chama `DependencyAnalyzer.analyze(projectScan)`.
    - Se lançar qualquer exceção: loga `ERROR`, `ProcessExiter.exit(1)`, execução encerrada (2.4).
-4. Loga `INFO` ("Saving analysis...") e chama `PersistenceService.save(projectScan, analysisResult)` — sem `try/catch` (2.8); por contrato, nunca lança.
-5. Calcula `outputDir = Paths.get("arqsync-reports", timestamp)`, com `timestamp` formatado como `yyyy-MM-dd-HH-mm-ss`.
-6. Loga `INFO` ("Generating report...") e chama `ReportExporter.export(projectScan, analysisResult, outputDir)`.
+6. Loga `INFO` ("Saving analysis...") e chama `PersistenceService.save(projectScan, analysisResult)` — sem `try/catch` (2.8); por contrato, nunca lança.
+7. Calcula `outputDir = Paths.get("arqsync-reports", timestamp)`, com `timestamp` formatado como `yyyy-MM-dd-HH-mm-ss`.
+8. Loga `INFO` ("Generating report...") e chama `ReportExporter.export(projectScan, analysisResult, outputDir)`.
    - Se lançar exceção (falha ao gerar o `report.json` — 2.7): loga `ERROR`, `ProcessExiter.exit(1)`, execução encerrada.
-7. Verifica `Files.exists(outputDir.resolve("report.html"))` (2.5):
+9. Verifica `Files.exists(outputDir.resolve("report.html"))` (2.5):
    - Se existir: loga mensagem final de sucesso — `"Report generated successfully at: arqsync-reports/.../report.html"`.
    - Se não existir: loga mensagem final apontando para o `report.json` gerado, sem alegar sucesso do HTML (os avisos específicos de por que o HTML não foi gerado já foram logados internamente pelo Exporter, 2.6).
-8. Execução termina normalmente (sem chamar `ProcessExiter.exit(...)` — código de saída `0` implícito).
+10. Se o diretório temporário de um clone foi criado (passo 2): removido agora (`GitRepositoryResolver.deleteRecursively`, "Cleaning up temporary directory..."), a menos que `--keep` esteja ativo ("Temporary directory kept at ..."). Executado em um bloco `finally` em torno dos passos 5–9, portanto acontece também quando qualquer um deles termina a execução com erro fatal — não só no caminho de sucesso.
+11. Execução termina normalmente (sem chamar `ProcessExiter.exit(...)` — código de saída `0` implícito).
 
 ---
 
@@ -206,18 +269,35 @@ public interface ProcessExiter {
 - **Python indisponível** (mock de `ReportExporter` cujo `export(...)` não gera `report.html` no `outputDir`, mas retorna normalmente): `report.json` presente; mensagem final aponta para o JSON, não alega sucesso do HTML; `ProcessExiter.exit(...)` **não** é chamado (não é fatal).
 - **`ReportExporter.export(...)` lança exceção** (falha ao gerar o `report.json`): log `ERROR` emitido; `ProcessExiter.exit(1)` chamado.
 - **Nenhum argumento / argumento vazio**: log `ERROR` de uso emitido; nenhum componente do pipeline é chamado; `ProcessExiter.exit(1)` chamado.
-- **Teste de integração com o contexto Spring** (`@SpringBootTest`): o contexto sobe corretamente com todos os beans (`ScannerService`, `DependencyAnalyzer`, `PersistenceService`, `ReportExporter`, `ProcessExiter`) injetados na classe orquestradora, confirmando que a configuração de `@Component`/`ApplicationRunner` está correta.
+- **Teste de integração com o contexto Spring** (`@SpringBootTest`): o contexto sobe corretamente com todos os beans (`GitRepositoryResolver`, `ScannerService`, `DependencyAnalyzer`, `PersistenceService`, `ReportExporter`, `ProcessExiter`) injetados na classe orquestradora, confirmando que a configuração de `@Component`/`ApplicationRunner` está correta.
+
+### Casos de teste — entrada via URL (2.11)
+
+`GitRepositoryResolver` é testado separadamente do orquestrador: os casos que dependem de rede real (clone de um repositório público de verdade) são testes `*IT` (Failsafe, `./mvnw verify`), consistente com a convenção já usada por `PersistenceIT`; os demais — detecção de URL, validação de sintaxe, limites de tamanho/contagem de arquivos, timeout de clone — são testes `*Test` (Surefire, `./mvnw test`), sem dependência de rede.
+
+- **URL válida** (`*IT`, repositório público real): `resolve(...)` retorna um diretório existente contendo `.git`; diretório removido após limpeza manual no teste.
+- **URL inválida** (`*Test`): string sem esquema, esquema diferente de `http`/`https`, ou sem host — `resolve(...)` lança `GitCloneException` com mensagem clara, sem tentar acessar rede.
+- **Timeout de clone** (`*Test`, determinístico): servidor TCP local que aceita a conexão mas nunca responde, combinado com um timeout de clone curto (segundos, via um construtor de teste do `GitRepositoryResolver` que substitui os 5 minutos de produção) — `resolve(...)` lança `GitCloneException` dentro do timeout configurado, e o diretório temporário criado é removido.
+- **Repositório que excede 100MB** (`*Test`, simulado): diretório com um arquivo esparso (`SeekableByteChannel`, sem escrever de fato 100MB em disco) maior que um limite de teste — `GitRepositoryResolver.enforceSizeLimit(dir, limite)` lança `GitCloneException`.
+- **Repositório com mais de 10.000 arquivos `.java`** (`*Test`, simulado com um limite pequeno): `GitRepositoryResolver.enforceJavaFileCountLimit(dir, limite)` lança `GitCloneException` quando o número de arquivos `.java` excede o limite; arquivos não-`.java` são ignorados na contagem.
+- **Limpeza do diretório temporário em caso de sucesso** (no orquestrador, `ArqSyncPipelineRunnerTest`, com `GitRepositoryResolver` mockado): após um pipeline completo bem-sucedido a partir de uma URL, o diretório retornado por `resolve(...)` não existe mais.
+- **Limpeza do diretório temporário em caso de erro** (idem, com o Analyzer lançando exceção): mesmo com a execução interrompida por um erro fatal, o diretório temporário é removido (bloco `finally`, passo 10 do fluxo de execução).
+- **Flag `--keep`** (idem, nos dois cenários acima — sucesso e erro): com `--keep` presente, o diretório temporário permanece após a execução.
+- **Falha ao clonar (URL inválida/repositório inacessível)** (no orquestrador, `GitRepositoryResolver` mockado lançando `GitCloneException`): log `ERROR` emitido; `ScannerService`/`DependencyAnalyzer`/`PersistenceService`/`ReportExporter` **nunca** chamados; `ProcessExiter.exit(1)` chamado.
 
 ---
 
 ## 6. Pendências
 
-- **Flags de linha de comando** (`--help`, `--verbose`, `--output-dir`): fora do v1 (2.1) — adicionar apenas se houver fricção real de uso.
+- **Flags de linha de comando** (`--help`, `--verbose`, `--output-dir`): fora do v1 (2.1) — `--keep` (2.11) é a única exceção, adicionada com um caso de uso concreto (depuração de repositórios clonados); as demais seguem fora, adicionar apenas se houver fricção real de uso.
 - **Modo silencioso** (sem logs): fora do v1.
 - **Saída para stdout** (em vez de arquivo): fora do v1 — os artefatos são sempre gravados em `arqsync-reports/[timestamp]/`.
 - **Paralelismo entre etapas**: fora do v1 (2.2) — revisitar apenas com evidência real de que a soma sequencial das quatro etapas é lenta o suficiente para incomodar o usuário.
 - **Execução em modo "apenas JSON" ou "apenas HTML"**: fora do v1 — o pipeline sempre tenta gerar os dois artefatos, com o HTML sendo best-effort (Spec do Exporter).
 - **Rename de `CommandLineRunner`**: ver 2.10 — recomendado renomear na implementação para evitar colisão de nome com `org.springframework.boot.CommandLineRunner`.
+- **Repositórios privados via URL** (2.11): fora do v1 — nenhum suporte a autenticação (tokens, SSH, credenciais). Só repositórios públicos acessíveis por HTTP(S) anônimo são suportados.
+- **Clone raso (`--depth 1`)** (2.11): não implementado — os limites de tamanho/timeout já mitigam repositórios grandes; revisitar apenas se o uso de banda/disco do clone completo se mostrar um problema real na prática.
+- **Subcomando/flag dedicado para distinguir URL de caminho local** (2.11): não implementado — a detecção por prefixo (`http://`/`https://`) já é inequívoca; revisitar apenas se surgir um caso real de ambiguidade.
 
 ---
 
