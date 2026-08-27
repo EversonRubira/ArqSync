@@ -1,0 +1,42 @@
+{
+  "projectName": "my-project",
+  "rootPath": "/repo/my-project",
+  "generatedAt": "2026-08-27T12:00:00.123456Z",
+  "metrics": {
+    "totalPackages": 3,
+    "totalClasses": 5,
+    "cycleCount": 1,
+    "violationCount": 1,
+    "dependencyCounts": [
+      {"pkg": {"value": "com.acme.controller"}, "incoming": 0, "outgoing": 1},
+      {"pkg": {"value": "com.acme.repository"}, "incoming": 1, "outgoing": 0}
+    ]
+  },
+  "cycles": [
+    {"path": [{"value": "com.acme.a"}, {"value": "com.acme.b"}, {"value": "com.acme.a"}]}
+  ],
+  "violations": [
+    {
+      "from": {"value": "com.acme.controller"},
+      "to": {"value": "com.acme.repository"},
+      "fromLayer": "CONTROLLER",
+      "toLayer": "REPOSITORY",
+      "type": "LAYER_SKIP",
+      "classSamples": [{"fromClass": "OrderController", "toClass": "OrderRepository"}],
+      "explanation": "OrderController depende diretamente de OrderRepository, pulando a camada de service."
+    }
+  ],
+  "dependencyGraph": {
+    "nodes": [
+      {"value": "com.acme.controller"},
+      {"value": "com.acme.repository"},
+      {"value": "com.acme.a"},
+      {"value": "com.acme.b"}
+    ],
+    "edges": [
+      {"from": {"value": "com.acme.controller"}, "to": {"value": "com.acme.repository"}, "occurrences": 1, "classSamples": []},
+      {"from": {"value": "com.acme.a"}, "to": {"value": "com.acme.b"}, "occurrences": 1, "classSamples": []},
+      {"from": {"value": "com.acme.b"}, "to": {"value": "com.acme.a"}, "occurrences": 1, "classSamples": []}
+    ]
+  }
+}

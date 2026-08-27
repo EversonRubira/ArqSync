@@ -1,0 +1,9 @@
+{
+  "projectName": "empty-project",
+  "rootPath": "/repo/empty-project",
+  "generatedAt": "2026-08-27T12:00:00Z",
+  "metrics": {"totalPackages": 0, "totalClasses": 0, "cycleCount": 0, "violationCount": 0, "dependencyCounts": []},
+  "cycles": [],
+  "violations": [],
+  "dependencyGraph": {"nodes": [], "edges": []}
+}

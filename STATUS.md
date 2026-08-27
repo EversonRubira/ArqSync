@@ -7,7 +7,7 @@
 
 ## Fase atual
 
-**Implementação — Scanner, Analyzer e Persistence concluídos.** Todas as Specs técnicas estão prontas; Scanner (`com.arqsync.scanner`), Analyzer (`com.arqsync.analyzer`) e Persistence (`com.arqsync.persistence`) estão implementados e testados (`./mvnw test` verde, 50/50 testes, cobertura ~96% de linhas). `./mvnw verify` só é validável fora deste ambiente de sessão — ver Pendências.
+**Implementação — Scanner, Analyzer, Persistence e Exporter concluídos.** Todas as Specs técnicas estão prontas; Scanner (`com.arqsync.scanner`), Analyzer (`com.arqsync.analyzer`), Persistence (`com.arqsync.persistence`) e Exporter (`com.arqsync.exporter` + `scripts/generate-report.py`) estão implementados e testados (`./mvnw test` verde, 58/58 testes Java, cobertura ~94% de linhas; `pytest` verde, 7/7 testes Python). `./mvnw verify` só é validável fora deste ambiente de sessão — ver Pendências.
 
 ---
 
@@ -43,12 +43,12 @@ Todas as Specs técnicas do v1 estão concluídas, incluindo a estratégia de te
 | Scanner (`com.arqsync.scanner`) | ✅ Implementado, testado | [`src/main/java/com/arqsync/scanner`](src/main/java/com/arqsync/scanner) |
 | Analyzer (`com.arqsync.analyzer`) | ✅ Implementado, testado | [`src/main/java/com/arqsync/analyzer`](src/main/java/com/arqsync/analyzer) |
 | Persistence (`com.arqsync.persistence`) | ✅ Implementado, testado (H2) — `PersistenceIT` (Testcontainers) não executável neste ambiente de sessão, sem daemon Docker | [`src/main/java/com/arqsync/persistence`](src/main/java/com/arqsync/persistence) |
-| Exporter | ⏳ Pendente | — |
+| Exporter (`com.arqsync.exporter` + `scripts/generate-report.py`) | ✅ Implementado, testado (Java + pytest) | [`src/main/java/com/arqsync/exporter`](src/main/java/com/arqsync/exporter), [`scripts/`](scripts) |
 | CLI | ⏳ Pendente | — |
 
 ## Próximo passo imediato
 
-**Implementação do Exporter** (`com.arqsync.exporter`), consumindo `ProjectScan` + `AnalysisResult` para gerar `report.json` (Java/Jackson) e `report.html` (script Python/Jinja2) — seguindo a ordem já usada nas Specs (Scanner → Analyzer → Persistence → Exporter → CLI).
+**Implementação do CLI** (`com.arqsync.cli` ou equivalente), orquestrando Scanner → Analyzer → Persistence → Exporter — o último componente antes do v1 estar funcionalmente completo.
 
 ---
 
@@ -72,6 +72,8 @@ Consolidadas das seções de Pendências das Specs já escritas:
 - **`PersistenceIT` (Testcontainers) não verificado nesta sessão:** o ambiente de sessão não tem um daemon Docker rodando (só o CLI do Docker está instalado) — `./mvnw verify` falha exclusivamente nesse teste (`IllegalStateException: Could not find a valid Docker environment`), não por bug de código. `./mvnw test` (50/50, sem Testcontainers) está verde. Rodar `./mvnw verify` em um ambiente com Docker (CI ou máquina local) antes de considerar o Persistence totalmente validado contra o schema Postgres real.
 - **Gap de resiliência "sem banco" no nível da aplicação Spring, não apenas do `PersistenceService`:** a Spec do Persistence (2.1) garante que `save(...)` nunca lança exceção, mas isso só cobre falhas *durante* uma chamada — com `spring-boot-starter-data-jpa` + Flyway agora no classpath, se o Postgres estiver genuinamente indisponível, o **contexto Spring inteiro pode falhar ao subir** (Flyway tenta migrar no startup), o que impediria até o Scanner/Analyzer/Exporter de rodar — contradizendo a resiliência "sem banco" do PRD (P0, item 8) num nível acima do que esta Spec cobre. Mitigação parcial já aplicada (`spring.datasource.hikari.initialization-fail-timeout: -1`, adia a validação de conexão do pool), mas o Flyway em si ainda tenta conectar no startup. Resolver isso é uma decisão de arquitetura do bootstrap da aplicação — provavelmente da Spec/implementação do CLI, não do Persistence isoladamente.
 - **Migration Flyway criada nesta implementação, não pré-existente:** o pedido presumia `V1__initial_schema.sql` já em `src/main/resources/db/migration/`, mas o arquivo não existia no repositório — foi criado agora com o conteúdo da Spec do Persistence (seção 3.2), com o nome `V1__initial_schema.sql` (a Spec usa `V1__init.sql`; mantido o nome pedido nesta tarefa).
+- **Gap real entre a Spec do Exporter e o modelo já implementado do Analyzer:** `SPEC-exporter.md` (2.5, 2.6) assume que `Cycle` carrega uma "explicação didática já pronta", mas `com.arqsync.analyzer.Cycle` — já implementado e commitado — só tem `path`; nunca teve campo de explicação (só `LayerViolation` tem `explanation`, mesmo na própria `SPEC-analyzer.md`, seção 3.2). Resolvido seguindo o modelo real: o `report.html` mostra o caminho do ciclo (e o diagrama Mermaid, que é a peça didática principal para ciclos, per PRD seção 2) sem uma frase de "explicação", em vez de inventar um campo novo no Analyzer fora do escopo desta tarefa.
+- **`DefaultHtmlReportGenerator` recebe a lista de comandos Python via construtor de teste** (além do caminho do script), não só o `scriptPath` como a Spec sugeria — necessário para simular de verdade o cenário "Python indisponível" (interpretador com nome inexistente) sem depender do `PATH` real da máquina.
 
 ---
 
