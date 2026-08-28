@@ -107,14 +107,26 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
             }
         }
 
+        Path outputDir;
         try {
-            runAnalysisPersistenceAndExport(projectScan);
+            outputDir = runAnalysisPersistenceAndExport(projectScan);
         } finally {
             cleanupTempCloneDir(clonedDir, keep);
         }
+
+        // Printed last, after cleanup, so it's the final thing the user sees -
+        // null means a fatal error already happened (and was already reported)
+        // in runAnalysisPersistenceAndExport, so there is nothing to print here.
+        if (outputDir != null) {
+            printFinalOutcome(outputDir);
+        }
     }
 
-    private void runAnalysisPersistenceAndExport(ProjectScan projectScan) {
+    /**
+     * Returns the report output directory on success, or {@code null} if a
+     * fatal error occurred (already logged and reported to {@link #processExiter}).
+     */
+    private Path runAnalysisPersistenceAndExport(ProjectScan projectScan) {
         log.info("Analyzing dependencies...");
         AnalysisResult analysisResult;
         try {
@@ -122,7 +134,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         } catch (Exception e) {
             log.error("Failed to analyze project: {}", e.getMessage(), e);
             processExiter.exit(EXIT_FATAL_ERROR);
-            return;
+            return null;
         }
 
         log.info("Saving analysis...");
@@ -138,10 +150,10 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         } catch (Exception e) {
             log.error("Failed to generate report: {}", e.getMessage(), e);
             processExiter.exit(EXIT_FATAL_ERROR);
-            return;
+            return null;
         }
 
-        reportFinalOutcome(outputDir);
+        return outputDir;
     }
 
     /**
@@ -189,14 +201,35 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         GitRepositoryResolver.deleteRecursively(clonedDir);
     }
 
-    private void reportFinalOutcome(Path outputDir) {
+    private static final String SEPARATOR = "=".repeat(60);
+
+    /**
+     * Prints the final outcome directly to stdout via {@link System#out} -
+     * not the logger - so it isn't interleaved with any log output and is
+     * guaranteed to be the very last thing printed (called after {@link #run}
+     * has already finished cleanup). Plain ASCII text, no box-drawing
+     * characters or emoji, so it renders identically on every terminal/
+     * codepage. Never opens a browser automatically; just points the user
+     * at the file.
+     */
+    private void printFinalOutcome(Path outputDir) {
         Path htmlPath = outputDir.resolve("report.html");
+        Path jsonPath = outputDir.resolve("report.json").toAbsolutePath().normalize();
+
+        System.out.println();
+        System.out.println(SEPARATOR);
         if (Files.exists(htmlPath)) {
-            log.info("Report generated successfully at: {}", htmlPath);
+            Path absoluteHtmlPath = htmlPath.toAbsolutePath().normalize();
+            System.out.println("Report generated successfully!");
+            System.out.println("Open the file: " + absoluteHtmlPath);
+            System.out.println("-".repeat(60));
+            System.out.println("JSON also available at: " + jsonPath);
         } else {
-            log.info("Report generated at: {} (report.html was not generated - see warnings above)",
-                    outputDir.resolve("report.json"));
+            System.out.println("report.html was not generated (see warnings above for why).");
+            System.out.println("-".repeat(60));
+            System.out.println("JSON available at: " + jsonPath);
         }
+        System.out.println(SEPARATOR);
     }
 
     private record CloneAndScanResult(Path clonedDir, ProjectScan projectScan) {

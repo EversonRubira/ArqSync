@@ -11,7 +11,8 @@ class DefaultDependencyAnalyzerTest {
             new DefaultDependencyGraphBuilder(),
             new DefaultCycleDetector(),
             new DefaultLayerViolationDetector(),
-            new DefaultMetricsCalculator()
+            new DefaultMetricsCalculator(),
+            new DefaultArchitectureStyleDetector()
     );
 
     @Test
@@ -46,6 +47,8 @@ class DefaultDependencyAnalyzerTest {
         assertThat(result.metrics().totalClasses()).isEqualTo(5);
         assertThat(result.metrics().cycleCount()).isEqualTo(1);
         assertThat(result.metrics().violationCount()).isEqualTo(1);
+
+        assertThat(result.architectureStyle().name()).isEqualTo("Arquitetura em Camadas (Layered)");
     }
 
     @Test
@@ -61,5 +64,6 @@ class DefaultDependencyAnalyzerTest {
         assertThat(result.metrics().cycleCount()).isZero();
         assertThat(result.metrics().violationCount()).isZero();
         assertThat(result.metrics().dependencyCounts()).isEmpty();
+        assertThat(result.architectureStyle().name()).isEqualTo("Não identificado");
     }
 }

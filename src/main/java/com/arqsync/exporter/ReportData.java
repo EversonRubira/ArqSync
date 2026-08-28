@@ -1,6 +1,7 @@
 package com.arqsync.exporter;
 
 import com.arqsync.analyzer.AnalysisMetrics;
+import com.arqsync.analyzer.ArchitectureStyle;
 import com.arqsync.analyzer.Cycle;
 import com.arqsync.analyzer.DependencyGraph;
 import com.arqsync.analyzer.LayerViolation;
@@ -21,7 +22,8 @@ public record ReportData(
         AnalysisMetrics metrics,
         List<Cycle> cycles,
         List<LayerViolation> violations,
-        DependencyGraph dependencyGraph
+        DependencyGraph dependencyGraph,
+        ArchitectureStyle architectureStyle
 ) {
 
     public ReportData {

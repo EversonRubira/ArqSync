@@ -1,6 +1,8 @@
 package com.arqsync.cli;
 
 import com.arqsync.analyzer.AnalysisResult;
+import com.arqsync.analyzer.ArchitectureStyle;
+import com.arqsync.analyzer.DefaultArchitectureStyleDetector;
 import com.arqsync.analyzer.DefaultCycleDetector;
 import com.arqsync.analyzer.DefaultDependencyAnalyzer;
 import com.arqsync.analyzer.DefaultDependencyGraphBuilder;
@@ -95,7 +97,8 @@ class ArqSyncPipelineRunnerTest {
         return new AnalysisResult(
                 new com.arqsync.analyzer.DependencyGraph(java.util.Set.of(), List.of()),
                 List.of(), List.of(),
-                new com.arqsync.analyzer.AnalysisMetrics(0, 0, 0, 0, List.of())
+                new com.arqsync.analyzer.AnalysisMetrics(0, 0, 0, 0, List.of()),
+                new ArchitectureStyle("Não identificado", "")
         );
     }
 
@@ -223,7 +226,8 @@ class ArqSyncPipelineRunnerTest {
                 new DefaultDependencyGraphBuilder(),
                 new DefaultCycleDetector(),
                 new DefaultLayerViolationDetector(),
-                new DefaultMetricsCalculator()
+                new DefaultMetricsCalculator(),
+                new DefaultArchitectureStyleDetector()
         );
         ArqSyncPipelineRunner realishRunner = new ArqSyncPipelineRunner(
                 gitRepositoryResolver, realScanner, realAnalyzer, persistenceService, reportExporter, processExiter

@@ -98,7 +98,7 @@ public class DefaultCycleDetector implements CycleDetector {
         if (component.size() == 1) {
             PackageName node = component.iterator().next();
             return hasSelfLoop(node, graph)
-                    ? List.of(new Cycle(List.of(node, node)))
+                    ? List.of(buildCycle(List.of(node, node)))
                     : List.of();
         }
 
@@ -111,6 +111,36 @@ public class DefaultCycleDetector implements CycleDetector {
         Set<PackageName> visited = new HashSet<>(List.of(start));
         searchCycles(start, start, component, graph, path, visited, cycles);
         return cycles;
+    }
+
+    private Cycle buildCycle(List<PackageName> path) {
+        return new Cycle(path, explanationFor(path), suggestionFor(path));
+    }
+
+    private String explanationFor(List<PackageName> path) {
+        if (path.size() == 2) {
+            // self-loop: [A, A]
+            String name = path.get(0).value();
+            return "%s importa uma de suas próprias classes através de um import totalmente qualificado, criando uma dependência circular do pacote consigo mesmo."
+                    .formatted(name);
+        }
+        String pathText = pathToString(path);
+        int packageCount = path.size() - 1;
+        return "Os pacotes %s formam um ciclo de dependência: cada um depende, direta ou indiretamente, de si mesmo através dos outros %d pacotes. Isso impede compilar, testar ou reutilizar qualquer um deles isoladamente."
+                .formatted(pathText, packageCount);
+    }
+
+    private String suggestionFor(List<PackageName> path) {
+        if (path.size() == 2) {
+            String name = path.get(0).value();
+            return "Mova a classe importada para outro pacote, ou extraia a funcionalidade compartilhada para um novo pacote que %s possa depender sem importar de volta a si mesmo."
+                    .formatted(name);
+        }
+        return "Quebre o ciclo extraindo a responsabilidade compartilhada entre esses pacotes para um novo pacote (ex.: uma interface ou um módulo comum) do qual os demais possam depender numa única direção, ou inverta uma das dependências para eliminar o laço.";
+    }
+
+    private String pathToString(List<PackageName> path) {
+        return path.stream().map(PackageName::value).collect(Collectors.joining(" → "));
     }
 
     private boolean hasSelfLoop(PackageName node, DependencyGraph graph) {
@@ -139,7 +169,7 @@ public class DefaultCycleDetector implements CycleDetector {
             if (next.equals(start)) {
                 List<PackageName> cyclePath = new ArrayList<>(path);
                 cyclePath.add(start);
-                cycles.add(new Cycle(List.copyOf(cyclePath)));
+                cycles.add(buildCycle(List.copyOf(cyclePath)));
                 if (cycles.size() >= MAX_CYCLES_PER_COMPONENT) {
                     return;
                 }

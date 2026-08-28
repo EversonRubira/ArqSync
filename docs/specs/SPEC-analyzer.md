@@ -165,10 +165,12 @@ record DependencyGraph(
     List<DependencyEdge> incomingTo(PackageName pkg);
 }
 
-record Cycle(List<PackageName> path) {
-    // path é a sequência ordenada do ciclo, com o primeiro nó repetido no fim
-    // ex.: [A, B, C, A]
-}
+record Cycle(
+    List<PackageName> path,  // sequência ordenada do ciclo, com o primeiro nó repetido no fim, ex.: [A, B, C, A]
+    String explanation,      // texto didático, ex.: "Os pacotes com.acme.a → com.acme.b → com.acme.a
+                              // formam um ciclo de dependência..."
+    String suggestion        // texto didático de como quebrar o ciclo
+) {}
 
 enum ViolationType { LAYER_SKIP, LAYER_INVERSION }
 
@@ -179,8 +181,9 @@ record LayerViolation(
     Layer toLayer,
     ViolationType type,
     List<ClassDependency> classSamples,
-    String explanation   // texto didático, ex.: "OrderController depende diretamente de
+    String explanation,  // texto didático, ex.: "OrderController depende diretamente de
                           // OrderRepository, pulando a camada de service."
+    String suggestion    // texto didático de como corrigir a violação
 ) {}
 
 record PackageDependencyCount(PackageName pkg, int incoming, int outgoing) {}
@@ -193,11 +196,17 @@ record AnalysisMetrics(
     List<PackageDependencyCount> dependencyCounts
 ) {}
 
+record ArchitectureStyle(
+    String name,        // ex.: "Arquitetura em Camadas (Layered)", "Clean Architecture"
+    String description  // texto didático descrevendo o estilo
+) {}
+
 record AnalysisResult(
     DependencyGraph dependencyGraph,
     List<Cycle> cycles,
     List<LayerViolation> violations,
-    AnalysisMetrics metrics
+    AnalysisMetrics metrics,
+    ArchitectureStyle architectureStyle
 ) {}
 ```
 
@@ -230,7 +239,13 @@ public interface MetricsCalculator {
         List<LayerViolation> violations
     );
 }
+
+public interface ArchitectureStyleDetector {
+    ArchitectureStyle detect(DependencyGraph graph);
+}
 ```
+
+A implementação padrão (`DefaultArchitectureStyleDetector`) é uma heurística de nomenclatura sobre os segmentos de nome de pacote presentes no grafo (camadas, hexagonal/ports & adapters, Clean Architecture, DDD), checada da mais para a menos específica, com `"Não identificado"` como resultado de primeira classe quando nenhum padrão reconhecido é encontrado — mesma filosofia de degradação graciosa de `Layer.UNKNOWN` (seção 2.4). É puramente informativo no relatório: ao contrário da detecção de camada por aresta, não influencia detecção de ciclo nem de violação.
 
 A implementação padrão de `DependencyAnalyzer` (`DefaultDependencyAnalyzer`) orquestra as quatro colaboradoras acima via composição (injeção de dependência simples, sem framework — consistente com o Analyzer sendo uma biblioteca pura sem I/O). Cada colaboradora é testável isoladamente.
 

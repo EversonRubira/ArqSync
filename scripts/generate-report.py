@@ -65,6 +65,8 @@ def build_cycles_view(cycles: list) -> list:
         {
             "path": " → ".join(pkg["value"] for pkg in cycle["path"]),
             "length": len(cycle["path"]) - 1,
+            "explanation": cycle["explanation"],
+            "suggestion": cycle["suggestion"],
         }
         for cycle in cycles
     ]
@@ -79,9 +81,17 @@ def build_violations_view(violations: list) -> list:
             "to_layer": violation["toLayer"],
             "type": violation["type"],
             "explanation": violation["explanation"],
+            "suggestion": violation["suggestion"],
         }
         for violation in violations
     ]
+
+
+def build_architecture_style_view(architecture_style: dict) -> dict:
+    return {
+        "name": architecture_style.get("name", "Não identificado"),
+        "description": architecture_style.get("description", ""),
+    }
 
 
 def build_dependency_counts_view(metrics: dict) -> list:
@@ -121,6 +131,7 @@ def render_html(report_data: dict) -> str:
         cycles=build_cycles_view(report_data.get("cycles", [])),
         violations=build_violations_view(report_data.get("violations", [])),
         mermaid_diagram=build_mermaid_diagram(report_data.get("dependencyGraph", {})),
+        architecture_style=build_architecture_style_view(report_data.get("architectureStyle", {})),
     )
 
 

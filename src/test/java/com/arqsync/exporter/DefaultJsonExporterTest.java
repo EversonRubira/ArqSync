@@ -2,6 +2,7 @@ package com.arqsync.exporter;
 
 import com.arqsync.analyzer.AnalysisMetrics;
 import com.arqsync.analyzer.AnalysisResult;
+import com.arqsync.analyzer.ArchitectureStyle;
 import com.arqsync.analyzer.Cycle;
 import com.arqsync.analyzer.DependencyGraph;
 import com.arqsync.analyzer.Layer;
@@ -38,9 +39,11 @@ class DefaultJsonExporterTest {
                 Set.of(new PackageName("com.acme.controller"), new PackageName("com.acme.repository")),
                 List.of()
         );
-        List<Cycle> cycles = List.of(new Cycle(List.of(
-                new PackageName("com.acme.a"), new PackageName("com.acme.b"), new PackageName("com.acme.a")
-        )));
+        List<Cycle> cycles = List.of(new Cycle(
+                List.of(new PackageName("com.acme.a"), new PackageName("com.acme.b"), new PackageName("com.acme.a")),
+                "com.acme.a e com.acme.b dependem um do outro, formando um ciclo.",
+                "Extraia a responsabilidade compartilhada para um novo pacote."
+        ));
         List<LayerViolation> violations = List.of(new LayerViolation(
                 new PackageName("com.acme.controller"),
                 new PackageName("com.acme.repository"),
@@ -48,13 +51,17 @@ class DefaultJsonExporterTest {
                 Layer.REPOSITORY,
                 ViolationType.LAYER_SKIP,
                 List.of(),
-                "OrderController depende diretamente de OrderRepository, pulando a camada de service."
+                "OrderController depende diretamente de OrderRepository, pulando a camada de service.",
+                "Introduza a chamada através de service em vez de acessar repository diretamente."
         ));
         AnalysisMetrics metrics = new AnalysisMetrics(
                 2, 5, 1, 1,
                 List.of(new PackageDependencyCount(new PackageName("com.acme.controller"), 0, 1))
         );
-        return new AnalysisResult(graph, cycles, violations, metrics);
+        ArchitectureStyle architectureStyle = new ArchitectureStyle(
+                "Arquitetura em Camadas (Layered)", "Descrição de teste."
+        );
+        return new AnalysisResult(graph, cycles, violations, metrics, architectureStyle);
     }
 
     private AnalysisResult emptyAnalysisResult() {
@@ -62,7 +69,8 @@ class DefaultJsonExporterTest {
                 new DependencyGraph(Set.of(), List.of()),
                 List.of(),
                 List.of(),
-                new AnalysisMetrics(0, 0, 0, 0, List.of())
+                new AnalysisMetrics(0, 0, 0, 0, List.of()),
+                new ArchitectureStyle("Não identificado", "Descrição de teste.")
         );
     }
 
@@ -82,6 +90,10 @@ class DefaultJsonExporterTest {
         assertThat(root.get("violations")).hasSize(1);
         assertThat(root.get("violations").get(0).get("explanation").asText())
                 .contains("pulando a camada de service");
+        assertThat(root.get("violations").get(0).get("suggestion").asText()).isNotBlank();
+        assertThat(root.get("cycles").get(0).get("explanation").asText()).isNotBlank();
+        assertThat(root.get("cycles").get(0).get("suggestion").asText()).isNotBlank();
+        assertThat(root.get("architectureStyle").get("name").asText()).isEqualTo("Arquitetura em Camadas (Layered)");
         assertThat(root.get("metrics").get("dependencyCounts")).hasSize(1);
     }
 

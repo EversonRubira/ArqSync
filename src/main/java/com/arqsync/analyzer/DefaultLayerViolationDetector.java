@@ -46,7 +46,8 @@ public class DefaultLayerViolationDetector implements LayerViolationDetector {
                 toLayer,
                 type,
                 edge.classSamples(),
-                explanationFor(edge, fromLayer, toLayer, type)
+                explanationFor(edge, fromLayer, toLayer, type),
+                suggestionFor(fromLayer, toLayer, type)
         );
     }
 
@@ -64,6 +65,20 @@ public class DefaultLayerViolationDetector implements LayerViolationDetector {
             case LAYER_INVERSION -> "%s (camada %s) depende de %s (camada %s), invertendo o fluxo esperado de dependência entre camadas."
                     .formatted(sourceSample, layerName(fromLayer), targetSample, layerName(toLayer));
         };
+    }
+
+    private String suggestionFor(Layer fromLayer, Layer toLayer, ViolationType type) {
+        return switch (type) {
+            case LAYER_SKIP -> "Introduza a chamada através de %s em vez de acessar %s diretamente, mantendo cada camada dependente apenas da camada imediatamente abaixo."
+                    .formatted(layerName(nextLayerAfter(fromLayer)), layerName(toLayer));
+            case LAYER_INVERSION -> "Essa dependência aponta no sentido contrário ao fluxo esperado (o correto é %s depender de %s, não o inverso). Mova a lógica que precisa de %s para dentro de %s, ou passe os dados necessários como parâmetro em vez de %s chamar %s diretamente."
+                    .formatted(layerName(toLayer), layerName(fromLayer), layerName(fromLayer), layerName(toLayer), layerName(fromLayer), layerName(toLayer));
+        };
+    }
+
+    private Layer nextLayerAfter(Layer layer) {
+        Layer[] values = Layer.values();
+        return values[layer.ordinal() + 1];
     }
 
     private String skippedLayerNames(Layer fromLayer, Layer toLayer) {

@@ -13,14 +13,20 @@ import java.util.Optional;
 
 /**
  * Invokes {@code scripts/generate-report.py} via {@link ProcessBuilder}
- * (SPEC-exporter.md, 2.3). Tries {@code python3} first, then {@code python}
- * as a fallback if the interpreter itself isn't found.
+ * (SPEC-exporter.md, 2.3). Tries {@code python}, then {@code py}, then
+ * {@code python3} (in that order) as fallbacks if one interpreter isn't
+ * found. {@code python} is tried first because on Windows {@code python3}
+ * commonly resolves to a Microsoft Store "app execution alias" stub instead
+ * of a real interpreter when Python was installed via python.org - the stub
+ * launches successfully (no {@link IOException}) but exits non-zero, so it
+ * can't be told apart from a genuine failure and must be avoided as the
+ * first candidate.
  */
 @Component
 public class DefaultHtmlReportGenerator implements HtmlReportGenerator {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultHtmlReportGenerator.class);
-    private static final List<String> DEFAULT_PYTHON_COMMANDS = List.of("python3", "python");
+    static final List<String> DEFAULT_PYTHON_COMMANDS = List.of("python", "py", "python3");
     private static final String REPORT_HTML = "report.html";
 
     private final Path scriptPath;
@@ -41,6 +47,8 @@ public class DefaultHtmlReportGenerator implements HtmlReportGenerator {
 
     @Override
     public boolean generate(Path jsonPath, Path outputDir) {
+        log.debug("Generating report.html from {} into {} using script {} (interpreter candidates: {})",
+                jsonPath, outputDir, scriptPath, pythonCommands);
         for (String pythonCommand : pythonCommands) {
             Optional<Boolean> result = tryGenerate(pythonCommand, jsonPath, outputDir);
             if (result.isPresent()) {
@@ -53,11 +61,14 @@ public class DefaultHtmlReportGenerator implements HtmlReportGenerator {
     }
 
     private Optional<Boolean> tryGenerate(String pythonCommand, Path jsonPath, Path outputDir) {
-        ProcessBuilder processBuilder = new ProcessBuilder(
+        List<String> command = List.of(
                 pythonCommand, scriptPath.toString(),
                 "--json-path", jsonPath.toString(),
                 "--output-dir", outputDir.toString()
-        ).redirectOutput(ProcessBuilder.Redirect.DISCARD);
+        );
+        log.debug("Attempting report.html generation with: {}", command);
+        ProcessBuilder processBuilder = new ProcessBuilder(command)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD);
 
         try {
             Process process = processBuilder.start();
@@ -65,17 +76,21 @@ public class DefaultHtmlReportGenerator implements HtmlReportGenerator {
             int exitCode = process.waitFor();
 
             if (exitCode != 0) {
-                log.error("generate-report.py failed (exit code {}): {}", exitCode, stderr.strip());
+                log.error("generate-report.py failed using '{}' (exit code {}): {}",
+                        pythonCommand, exitCode, stderr.strip());
                 return Optional.of(false);
             }
 
             boolean htmlExists = Files.exists(outputDir.resolve(REPORT_HTML));
             if (!htmlExists) {
                 log.error("generate-report.py exited successfully but {} was not found in {}", REPORT_HTML, outputDir);
+            } else {
+                log.debug("report.html generated successfully using '{}'", pythonCommand);
             }
             return Optional.of(htmlExists);
         } catch (IOException e) {
             // "<command> not found" - signal "try the next candidate", not "failed"
+            log.debug("Python interpreter '{}' is not available ({}); trying next candidate", pythonCommand, e.getMessage());
             return Optional.empty();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

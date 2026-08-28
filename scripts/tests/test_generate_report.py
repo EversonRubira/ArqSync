@@ -36,6 +36,9 @@ def test_report_with_cycle_and_violation_renders_mermaid_cycles_and_violations(t
     assert '"com.acme.controller"' in html or "&#34;com.acme.controller&#34;" in html
     assert "com.acme.a → com.acme.b → com.acme.a" in html
     assert "OrderController depende diretamente de OrderRepository" in html
+    assert "Introduza a chamada através de service" in html  # violation suggestion
+    assert "Quebre o ciclo extraindo" in html  # cycle suggestion
+    assert "Arquitetura detectada: Arquitetura em Camadas (Layered)" in html
     assert "3" in html  # totalPackages metric tile
 
 
@@ -46,6 +49,7 @@ def test_report_without_cycles_or_violations_renders_empty_state(tmp_path):
 
     assert "Nenhum ciclo de dependência detectado." in html
     assert "Nenhuma violação de camada detectada." in html
+    assert "Arquitetura detectada: Não identificado" in html
 
 
 def test_missing_json_path_exits_non_zero_with_stderr_message(tmp_path, capsys):

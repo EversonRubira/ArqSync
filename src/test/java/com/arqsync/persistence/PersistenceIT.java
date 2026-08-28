@@ -2,6 +2,7 @@ package com.arqsync.persistence;
 
 import com.arqsync.analyzer.AnalysisMetrics;
 import com.arqsync.analyzer.AnalysisResult;
+import com.arqsync.analyzer.ArchitectureStyle;
 import com.arqsync.analyzer.DependencyGraph;
 import com.arqsync.scanner.ProjectScan;
 import org.junit.jupiter.api.Test;
@@ -64,7 +65,8 @@ class PersistenceIT {
                 new DependencyGraph(Set.of(), List.of()),
                 List.of(),
                 List.of(),
-                new AnalysisMetrics(0, 0, 0, 0, List.of())
+                new AnalysisMetrics(0, 0, 0, 0, List.of()),
+                new ArchitectureStyle("Não identificado", "")
         );
 
         persistenceService.save(projectScan, analysisResult);

@@ -13,7 +13,11 @@
     ]
   },
   "cycles": [
-    {"path": [{"value": "com.acme.a"}, {"value": "com.acme.b"}, {"value": "com.acme.a"}]}
+    {
+      "path": [{"value": "com.acme.a"}, {"value": "com.acme.b"}, {"value": "com.acme.a"}],
+      "explanation": "Os pacotes com.acme.a → com.acme.b → com.acme.a formam um ciclo de dependência: cada um depende, direta ou indiretamente, de si mesmo através dos outros 2 pacotes. Isso impede compilar, testar ou reutilizar qualquer um deles isoladamente.",
+      "suggestion": "Quebre o ciclo extraindo a responsabilidade compartilhada entre esses pacotes para um novo pacote do qual os demais possam depender numa única direção, ou inverta uma das dependências para eliminar o laço."
+    }
   ],
   "violations": [
     {
@@ -23,7 +27,8 @@
       "toLayer": "REPOSITORY",
       "type": "LAYER_SKIP",
       "classSamples": [{"fromClass": "OrderController", "toClass": "OrderRepository"}],
-      "explanation": "OrderController depende diretamente de OrderRepository, pulando a camada de service."
+      "explanation": "OrderController depende diretamente de OrderRepository, pulando a camada de service.",
+      "suggestion": "Introduza a chamada através de service em vez de acessar repository diretamente, mantendo cada camada dependente apenas da camada imediatamente abaixo."
     }
   ],
   "dependencyGraph": {
@@ -38,5 +43,9 @@
       {"from": {"value": "com.acme.a"}, "to": {"value": "com.acme.b"}, "occurrences": 1, "classSamples": []},
       {"from": {"value": "com.acme.b"}, "to": {"value": "com.acme.a"}, "occurrences": 1, "classSamples": []}
     ]
+  },
+  "architectureStyle": {
+    "name": "Arquitetura em Camadas (Layered)",
+    "description": "Os pacotes seguem a convenção clássica de camadas horizontais (controller → service → repository → domain), onde cada camada só deveria depender da camada imediatamente abaixo dela."
   }
 }

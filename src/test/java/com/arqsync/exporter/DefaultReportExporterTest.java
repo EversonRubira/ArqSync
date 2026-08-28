@@ -2,6 +2,7 @@ package com.arqsync.exporter;
 
 import com.arqsync.analyzer.AnalysisMetrics;
 import com.arqsync.analyzer.AnalysisResult;
+import com.arqsync.analyzer.ArchitectureStyle;
 import com.arqsync.analyzer.DependencyGraph;
 import com.arqsync.scanner.ProjectScan;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,8 @@ class DefaultReportExporterTest {
                 new DependencyGraph(Set.of(), List.of()),
                 List.of(),
                 List.of(),
-                new AnalysisMetrics(0, 0, 0, 0, List.of())
+                new AnalysisMetrics(0, 0, 0, 0, List.of()),
+                new ArchitectureStyle("Não identificado", "")
         );
     }
 
@@ -51,7 +53,7 @@ class DefaultReportExporterTest {
     @Test
     void pythonAvailableAndScriptSucceedsProducesBothArtifacts(@TempDir Path outputDir) throws URISyntaxException {
         HtmlReportGenerator htmlReportGenerator =
-                new DefaultHtmlReportGenerator(realScriptPath(), List.of("python3", "python"));
+                new DefaultHtmlReportGenerator(realScriptPath(), DefaultHtmlReportGenerator.DEFAULT_PYTHON_COMMANDS);
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
         exporter.export(projectScan(), emptyAnalysisResult(), outputDir);
@@ -77,7 +79,7 @@ class DefaultReportExporterTest {
     void scriptExitingWithNonZeroCodeStillProducesJsonAndDoesNotThrow(@TempDir Path outputDir)
             throws URISyntaxException {
         HtmlReportGenerator htmlReportGenerator =
-                new DefaultHtmlReportGenerator(fixtureScript("always-fails.py"), List.of("python3", "python"));
+                new DefaultHtmlReportGenerator(fixtureScript("always-fails.py"), DefaultHtmlReportGenerator.DEFAULT_PYTHON_COMMANDS);
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
         assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), outputDir))

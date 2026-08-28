@@ -2,6 +2,7 @@ package com.arqsync.persistence;
 
 import com.arqsync.analyzer.AnalysisMetrics;
 import com.arqsync.analyzer.AnalysisResult;
+import com.arqsync.analyzer.ArchitectureStyle;
 import com.arqsync.analyzer.DependencyGraph;
 import com.arqsync.analyzer.PackageDependencyCount;
 import com.arqsync.analyzer.PackageName;
@@ -38,7 +39,7 @@ class AnalysisResultMapperTest {
         AnalysisMetrics metrics = new AnalysisMetrics(
                 totalPackages, totalClasses, cycles.size(), violations.size(), dependencyCounts
         );
-        return new AnalysisResult(graph, cycles, violations, metrics);
+        return new AnalysisResult(graph, cycles, violations, metrics, new ArchitectureStyle("Não identificado", ""));
     }
 
     @Test
@@ -47,9 +48,10 @@ class AnalysisResultMapperTest {
         AnalysisResult analysisResult = analysisResultWith(
                 1,
                 2,
-                List.of(new com.arqsync.analyzer.Cycle(List.of(
-                        new PackageName("com.acme.a"), new PackageName("com.acme.b"), new PackageName("com.acme.a")
-                ))),
+                List.of(new com.arqsync.analyzer.Cycle(
+                        List.of(new PackageName("com.acme.a"), new PackageName("com.acme.b"), new PackageName("com.acme.a")),
+                        "explanation", "suggestion"
+                )),
                 List.of(),
                 List.of(new PackageDependencyCount(new PackageName("com.acme.controller"), 1, 2))
         );

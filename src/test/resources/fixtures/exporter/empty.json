@@ -5,5 +5,9 @@
   "metrics": {"totalPackages": 0, "totalClasses": 0, "cycleCount": 0, "violationCount": 0, "dependencyCounts": []},
   "cycles": [],
   "violations": [],
-  "dependencyGraph": {"nodes": [], "edges": []}
+  "dependencyGraph": {"nodes": [], "edges": []},
+  "architectureStyle": {
+    "name": "Não identificado",
+    "description": "Não foi possível reconhecer um padrão arquitetural conhecido pelos nomes dos pacotes deste projeto."
+  }
 }

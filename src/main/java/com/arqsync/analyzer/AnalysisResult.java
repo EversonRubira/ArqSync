@@ -11,7 +11,8 @@ public record AnalysisResult(
         DependencyGraph dependencyGraph,
         List<Cycle> cycles,
         List<LayerViolation> violations,
-        AnalysisMetrics metrics
+        AnalysisMetrics metrics,
+        ArchitectureStyle architectureStyle
 ) {
 
     public AnalysisResult {
