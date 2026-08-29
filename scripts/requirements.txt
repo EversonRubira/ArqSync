@@ -8,3 +8,13 @@ pytest>=8.0
 # Missing this at runtime is not fatal: generate-report.py logs a warning and
 # skips report.pdf instead of failing the whole run.
 weasyprint>=69.0
+
+# Optional: used to render the small print/PDF-only diagram of just the
+# packages involved in a cycle or violation (build_pdf_diagram_svg). Same
+# story as weasyprint above: this Python package is a thin wrapper that
+# shells out to the real Graphviz 'dot' binary, which `pip install` does NOT
+# provide - it needs a separate system install (e.g. https://graphviz.org/download/,
+# `choco install graphviz` on Windows, `apt install graphviz` on Linux).
+# Missing either the package or the binary is not fatal: a warning is logged
+# and the template falls back to explanatory text instead of the diagram.
+graphviz>=0.20

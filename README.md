@@ -16,6 +16,7 @@ ArqSync escaneia o código-fonte de um projeto Java, analisa suas dependências 
 - Detecção de ciclos de dependência entre pacotes
 - Detecção de violação de camadas por convenção de nomenclatura (`controller`, `service`, `repository`, `domain`)
 - Geração de relatórios em `report.json` e `report.html`
+- Geração opcional de `report.pdf` — via `--pdf` na CLI (WeasyPrint, dependência opcional com fallback gracioso) ou diretamente no navegador, com o botão "Gerar PDF" no `report.html`
 - Persistência opcional em PostgreSQL, com fallback gracioso quando o banco está indisponível
 
 ## Pré-requisitos
@@ -53,6 +54,14 @@ Para manter o clone após a análise (depuração), adicione a flag `--keep`:
 ```bash
 java -jar target/arqsync.jar https://github.com/usuario/projeto.git --keep
 ```
+
+Para gerar `report.pdf` já na análise (via WeasyPrint), adicione a flag `--pdf`:
+
+```bash
+java -jar target/arqsync.jar /caminho/do/projeto --pdf
+```
+
+Alternativamente, o `report.html` tem um botão "Gerar PDF" no cabeçalho que usa a impressão do próprio navegador — não depende do WeasyPrint.
 
 **Limitações (análise remota):**
 - Apenas repositórios públicos

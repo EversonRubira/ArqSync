@@ -112,6 +112,100 @@ def build_mermaid_diagram(dependency_graph: dict, cycles: list = None) -> str:
     return "\n".join(lines)
 
 
+def _wrap_package_name_for_graphviz(name: str) -> str:
+    """Same wrapping rule as wrap_package_name_for_diagram (>WRAP_AFTER_SEGMENTS
+    segments, split ~in half), but joined with the DOT label line-break escape
+    (literal `\\n`, verified against graphviz.Digraph.source) instead of the
+    HTML `<br/>` Mermaid's htmlLabels understands."""
+    segments = name.split(".")
+    if len(segments) <= WRAP_AFTER_SEGMENTS:
+        return name
+    midpoint = (len(segments) + 1) // 2
+    first_line = ".".join(segments[:midpoint])
+    second_line = ".".join(segments[midpoint:])
+    return f"{first_line}\\n{second_line}"
+
+
+def build_pdf_diagram_svg(dependency_graph: dict, cycles: list, violations: list) -> str:
+    """A small, static SVG (rendered server-side via Graphviz) of only the
+    packages involved in a cycle or a layer violation - the full Mermaid
+    graph is client-side rendered (needs JS) and, for a large project, too
+    dense to stay legible once printed to a fixed page size. This is
+    deliberately a *different*, purpose-built diagram for print/PDF, not a
+    re-render of the Mermaid one: scoped down to just the packages worth
+    calling out keeps it small and legible regardless of overall project size.
+
+    `cycles` is the raw cycles list (list of {"path": [{"value": ...}, ...]}
+    dicts, as in report_data["cycles"]); `violations` is the already-flattened
+    violations_view (list of {"from": str, "to": str, ...} dicts).
+
+    Returns "" (never raises) if there are no problem packages, if the
+    optional 'graphviz' package isn't installed, or if the 'dot' binary it
+    shells out to isn't on PATH - the same graceful-degradation contract as
+    generate_pdf() for WeasyPrint. The template falls back to explanatory
+    text in that case.
+    """
+    problem_packages = set()
+    for cycle in cycles:
+        for pkg in cycle.get("path", []):
+            problem_packages.add(pkg["value"])
+    for violation in violations:
+        problem_packages.add(violation["from"])
+        problem_packages.add(violation["to"])
+
+    if not problem_packages:
+        return ""
+
+    try:
+        import graphviz
+    except ImportError as e:
+        print(
+            f"Warning: PDF diagram skipped - the optional 'graphviz' package is not "
+            f"installed ({e}). Install it with: pip install graphviz",
+            file=sys.stderr,
+        )
+        return ""
+
+    cycle_edges = _cycle_edge_pairs(cycles)
+    relevant_edges = [
+        edge for edge in dependency_graph.get("edges", [])
+        if edge["from"]["value"] in problem_packages and edge["to"]["value"] in problem_packages
+    ]
+
+    graph = graphviz.Digraph()
+    graph.attr(rankdir="TB", nodesep="0.5", ranksep="0.6", bgcolor="white")
+    graph.attr("node", shape="box", style="rounded,filled", fillcolor="#eaf0fe",
+               color="#c7d7fb", fontname="Helvetica,Arial,sans-serif", fontsize="11")
+    graph.attr("edge", fontname="Helvetica,Arial,sans-serif", fontsize="9", color="#5c6472")
+
+    for package in sorted(problem_packages):
+        graph.node(package, label=_wrap_package_name_for_graphviz(package))
+
+    for edge in relevant_edges:
+        from_name = edge["from"]["value"]
+        to_name = edge["to"]["value"]
+        if (from_name, to_name) in cycle_edges:
+            graph.edge(from_name, to_name, color="#c11d3a", penwidth="2")
+        else:
+            graph.edge(from_name, to_name)
+
+    try:
+        svg_bytes = graph.pipe(format="svg")
+        return svg_bytes.decode("utf-8")
+    except Exception as e:
+        # Broad on purpose, same rationale as generate_pdf(): graphviz.pipe()
+        # raises different exception types across versions/platforms when
+        # the 'dot' binary itself is missing (ExecutableNotFound) or fails
+        # (CalledProcessError) - none of them should crash the whole script.
+        print(
+            f"Warning: PDF diagram skipped - the Graphviz 'dot' executable is not "
+            f"available or failed ({e}). Install Graphviz from https://graphviz.org/download/ "
+            f"and ensure 'dot' is on PATH.",
+            file=sys.stderr,
+        )
+        return ""
+
+
 def build_cycles_view(cycles: list) -> list:
     return [
         {
@@ -353,6 +447,7 @@ def render_html(report_data: dict) -> str:
         violations=violations_view,
         suggestions=build_suggestions_view(violations_view, cycles_view),
         mermaid_diagram=build_mermaid_diagram(dependency_graph, raw_cycles),
+        pdf_diagram_svg=build_pdf_diagram_svg(dependency_graph, raw_cycles, violations_view),
         architecture_style=build_architecture_style_view(report_data.get("architectureStyle", {})),
     )
 

@@ -27,8 +27,12 @@ def load_fixture(name: str) -> dict:
         return json.load(f)
 
 
-def test_report_with_cycle_and_violation_renders_mermaid_cycles_and_violations(tmp_path):
+def test_report_with_cycle_and_violation_renders_mermaid_cycles_and_violations(tmp_path, monkeypatch):
     report_data = load_fixture("with-cycle-and-violation.json")
+    # Forces the Graphviz 'dot' binary to look unavailable regardless of
+    # whether it's actually installed on the machine running this test -
+    # render_html must still succeed and fall back to text, never crash.
+    monkeypatch.setattr(gr, "build_pdf_diagram_svg", lambda *a, **k: "")
 
     html = gr.render_html(report_data)
 
@@ -42,6 +46,10 @@ def test_report_with_cycle_and_violation_renders_mermaid_cycles_and_violations(t
     assert "1 violação crítica e 1 ciclo de dependência" in html  # header status summary
     assert "Sugestões de melhoria" in html
     assert "Gerado por ArqSync v1.2.0" in html
+    # pdf_diagram_only: with pdf_diagram_svg forced empty above, and problem
+    # packages present in this fixture, it must fall back to text.
+    assert "pdf-diagram-only" in html
+    assert "Graphviz não está disponível" in html
 
 
 def test_report_without_cycles_or_violations_renders_empty_state(tmp_path):
@@ -54,6 +62,9 @@ def test_report_without_cycles_or_violations_renders_empty_state(tmp_path):
     assert "Arquitetura detectada: Não identificado" in html
     assert "Nenhum problema estrutural detectado" in html  # header status summary
     assert "Nenhuma ação necessária" in html  # suggestions empty state
+    # no problem packages at all - build_pdf_diagram_svg returns "" before
+    # even trying Graphviz, and the template shows the "nothing to show" text
+    assert "sem pacotes problemáticos" in html
 
 
 def test_missing_json_path_exits_non_zero_with_stderr_message(tmp_path, capsys):
@@ -421,6 +432,163 @@ def test_main_with_pdf_flag_still_succeeds_and_writes_html_regardless_of_pdf_out
 
     assert exit_code == 0
     assert (output_dir / "report.html").exists()
+
+
+def test_wrap_package_name_for_graphviz_leaves_short_names_unchanged():
+    assert gr._wrap_package_name_for_graphviz("com.acme.service") == "com.acme.service"
+
+
+def test_wrap_package_name_for_graphviz_splits_long_names_with_dot_line_break_escape():
+    name = "br.com.caelum.cursos.adapters.database.jpa.entity"
+
+    wrapped = gr._wrap_package_name_for_graphviz(name)
+
+    # literal backslash-n (DOT's label line-break escape), not a real newline
+    # character - verified against graphviz.Digraph.source before writing this.
+    assert wrapped == "br.com.caelum.cursos\\nadapters.database.jpa.entity"
+
+
+def test_build_pdf_diagram_svg_returns_empty_when_no_problem_packages():
+    dependency_graph = {"nodes": [{"value": "a"}, {"value": "b"}], "edges": []}
+
+    result = gr.build_pdf_diagram_svg(dependency_graph, [], [])
+
+    assert result == ""
+
+
+def test_build_pdf_diagram_svg_gracefully_skips_when_graphviz_package_unavailable(monkeypatch, capsys):
+    # Forces "import graphviz" to raise ImportError regardless of whether the
+    # package is actually installed in this environment.
+    monkeypatch.setitem(sys.modules, "graphviz", None)
+    cycles = [{"path": [{"value": "a"}, {"value": "b"}, {"value": "a"}]}]
+
+    result = gr.build_pdf_diagram_svg({"nodes": [], "edges": []}, cycles, [])
+
+    assert result == ""
+    assert "Warning" in capsys.readouterr().err
+
+
+def test_build_pdf_diagram_svg_gracefully_skips_when_dot_binary_is_missing(monkeypatch, capsys):
+    # Simulates the real scenario where the 'graphviz' Python package is
+    # installed but the 'dot' executable it shells out to is not on PATH -
+    # via a fake Digraph whose pipe() raises the same exception type
+    # graphviz.pipe() raises in that case, rather than relying on the actual
+    # 'dot' binary being absent from this machine (it may well be installed).
+    import graphviz
+
+    class FakeDigraph:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def attr(self, *args, **kwargs):
+            pass
+
+        def node(self, *args, **kwargs):
+            pass
+
+        def edge(self, *args, **kwargs):
+            pass
+
+        def pipe(self, format=None):
+            raise graphviz.ExecutableNotFound("dot")
+
+    monkeypatch.setattr(graphviz, "Digraph", FakeDigraph)
+    dependency_graph = {
+        "nodes": [{"value": "a"}, {"value": "b"}],
+        "edges": [
+            {"from": {"value": "a"}, "to": {"value": "b"}},
+            {"from": {"value": "b"}, "to": {"value": "a"}},
+        ],
+    }
+    cycles = [{"path": [{"value": "a"}, {"value": "b"}, {"value": "a"}]}]
+
+    result = gr.build_pdf_diagram_svg(dependency_graph, cycles, [])
+
+    assert result == ""
+    assert "Warning" in capsys.readouterr().err
+
+
+def test_build_pdf_diagram_svg_filters_to_only_problem_packages_and_highlights_cycle_edges(monkeypatch):
+    # Stubs only graphviz.Digraph.pipe() (the part that needs the real 'dot'
+    # binary) - node()/edge() run for real, so the actual subgraph-filtering
+    # logic in build_pdf_diagram_svg is exercised, not just the wiring.
+    import types
+
+    captured = {}
+
+    class FakeDigraph:
+        def __init__(self, *args, **kwargs):
+            self.nodes = []
+            self.edges = []
+
+        def attr(self, *args, **kwargs):
+            pass
+
+        def node(self, name, label=None):
+            self.nodes.append(name)
+
+        def edge(self, a, b, **kwargs):
+            self.edges.append((a, b, kwargs))
+
+        def pipe(self, format=None):
+            captured["nodes"] = list(self.nodes)
+            captured["edges"] = list(self.edges)
+            return "<svg>fake</svg>".encode("utf-8")
+
+    fake_module = types.SimpleNamespace(Digraph=FakeDigraph)
+    monkeypatch.setitem(sys.modules, "graphviz", fake_module)
+
+    dependency_graph = {
+        "nodes": [{"value": "a"}, {"value": "b"}, {"value": "c"}],
+        "edges": [
+            {"from": {"value": "a"}, "to": {"value": "b"}},  # cycle edge - included, red
+            {"from": {"value": "b"}, "to": {"value": "a"}},  # cycle edge - included, red
+            {"from": {"value": "a"}, "to": {"value": "c"}},  # c is not a problem package - excluded
+        ],
+    }
+    cycles = [{"path": [{"value": "a"}, {"value": "b"}, {"value": "a"}]}]
+
+    result = gr.build_pdf_diagram_svg(dependency_graph, cycles, [])
+
+    assert result == "<svg>fake</svg>"
+    assert sorted(captured["nodes"]) == ["a", "b"]
+    edge_pairs = [(f, t) for f, t, kw in captured["edges"]]
+    assert sorted(edge_pairs) == [("a", "b"), ("b", "a")]
+    assert all(kw.get("color") == "#c11d3a" for _, _, kw in captured["edges"])
+
+
+def test_build_pdf_diagram_svg_includes_packages_from_violations_too(monkeypatch):
+    import types
+
+    captured = {}
+
+    class FakeDigraph:
+        def __init__(self, *args, **kwargs):
+            self.nodes = []
+
+        def attr(self, *args, **kwargs):
+            pass
+
+        def node(self, name, label=None):
+            self.nodes.append(name)
+
+        def edge(self, a, b, **kwargs):
+            pass
+
+        def pipe(self, format=None):
+            captured["nodes"] = list(self.nodes)
+            return b"<svg>fake</svg>"
+
+    fake_module = types.SimpleNamespace(Digraph=FakeDigraph)
+    monkeypatch.setitem(sys.modules, "graphviz", fake_module)
+
+    dependency_graph = {"nodes": [{"value": "com.acme.controller"}, {"value": "com.acme.repository"}], "edges": []}
+    violations_view = [{"from": "com.acme.controller", "to": "com.acme.repository"}]
+
+    result = gr.build_pdf_diagram_svg(dependency_graph, [], violations_view)
+
+    assert result == "<svg>fake</svg>"
+    assert sorted(captured["nodes"]) == ["com.acme.controller", "com.acme.repository"]
 
 
 if __name__ == "__main__":

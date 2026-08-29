@@ -329,6 +329,11 @@
         }
         .diagram-legend .legend-swatch.cycle-edge { background: var(--danger); }
 
+        /* Print/PDF-only Graphviz diagram (build_pdf_diagram_svg) - hidden on
+           screen (where Mermaid, above, is the interactive one); shown only
+           in @media print, see below. */
+        .pdf-diagram-only { display: none; }
+
         /* ---- Cards: violations / cycles / suggestions ---- */
         .card-list { display: flex; flex-direction: column; gap: 0.85rem; }
         .card {
@@ -437,43 +442,55 @@
         footer code { font-family: var(--font-mono); }
 
         /* ---- Print / PDF ----
-           Triggered by the "Gerar PDF" button (window.print()) - this runs in
-           the live page, after Mermaid has already rendered the diagram to an
-           inline SVG, so (unlike a headless/non-JS renderer) the actual graph
-           prints correctly, not its source text. Interactive-only controls
-           (nav, zoom, expand) are hidden, the base font size is bumped for
-           legibility on paper (html uses pt so every rem-sized element scales
-           with it), and the page itself prints landscape at A4 - a wide
-           dependency diagram is far more likely to fit without truncation
-           sideways than portrait. The diagram is scaled down slightly
-           (0.75) with page-break-inside:avoid so it isn't cut mid-page even
-           after the layout shrinks it, on top of Mermaid's own nodeSpacing/
-           rankSpacing/wrap already keeping individual labels legible
-           (generate-report.py, MERMAID_INIT).
+           Triggered by the "Gerar PDF" button (window.print()). Interactive-
+           only controls (nav, zoom, expand) are hidden, the base font size
+           is bumped for legibility on paper (html uses pt so every rem-sized
+           element scales with it), and the page prints landscape at A4 with
+           generous margins.
 
-           transform is !important because the on-screen zoom controls set an
-           inline style="transform: scale(...)" on this same element (see the
-           zoom IIFE below) - a non-important stylesheet rule can never win
-           against a non-important inline style regardless of selector
-           specificity, so without !important here, printing right after
-           zooming in/out on screen carried that zoom level into the PDF
-           (overlapping/oversized text). The zoom IIFE also now resets the
-           inline style to scale(1) around beforeprint/afterprint as a second,
-           independent safeguard - belt and suspenders, since it covers
-           Ctrl+P/browser-menu printing too, not just the "Gerar PDF" button.
+           Mermaid vs. the print diagram: Mermaid (client-side, full graph)
+           is hidden here - #diagram .diagram-wrapper/.diagram-legend below -
+           and replaced by a *different*, purpose-built diagram
+           (pdf_diagram_svg, build_pdf_diagram_svg in generate-report.py):
+           server-rendered via Graphviz, scoped down to only the packages
+           involved in a cycle or violation. That's what actually prints -
+           small and legible no matter how large the full project graph is,
+           which the full Mermaid graph (however scaled) isn't guaranteed to
+           be once forced onto a fixed page size.
 
-           #diagram also gets page-break-before:always: the diagram section
-           is placed last in the document (right before the footer, see the
-           HTML comment there) specifically so it can have a print page
-           entirely to itself - nothing else's text shares that page for the
-           scaled-down SVG to end up overlapping. */
+           The .mermaid-container/.diagram-zoom-target rules below (scale,
+           transform-origin, svg sizing) are NOT removed even though Mermaid
+           is hidden in the normal case - kept as a second, independent
+           safety net: if display:none ever fails to apply (a future edit
+           re-enables the Mermaid block, a browser quirk, etc.), the diagram
+           still can't overflow the page or carry over the on-screen zoom
+           level (see the beforeprint/afterprint reset in the zoom IIFE too -
+           same belt-and-suspenders reasoning, covers Ctrl+P/browser-menu
+           printing as well as the "Gerar PDF" button).
+
+           #diagram gets page-break-before:always: the diagram section is
+           placed last in the document (right before the footer) so whichever
+           diagram ends up visible in print has a page entirely to itself -
+           nothing else's text to overlap. */
         @media print {
-            @page { size: A4 landscape; margin: 10mm; }
+            @page { size: A4 landscape; margin: 1.5cm; }
             .toc, .pdf-btn, .diagram-toolbar, .diagram-expand-overlay, .diagram-backdrop { display: none !important; }
             html { font-size: 12pt; }
             body { font-size: 11pt; padding: 0; }
             #diagram { page-break-before: always; }
-            .diagram-wrapper { position: static !important; max-height: none; overflow: visible; box-shadow: none; }
+            #diagram .section-intro { display: none !important; }
+            .diagram-wrapper, .diagram-legend { display: none !important; }
+            .pdf-diagram-only { display: block; }
+            .pdf-diagram-svg { text-align: center; }
+            .pdf-diagram-svg svg { max-width: 100% !important; height: auto !important; }
+            .pdf-diagram-legend, .pdf-diagram-fallback {
+                font-size: 0.85rem;
+                font-style: italic;
+                color: var(--text-muted);
+                margin-top: 0.75rem;
+            }
+            /* Safety net only - see comment above; Mermaid is hidden above in
+               the normal case, so these rules are not expected to apply. */
             .mermaid-container {
                 page-break-inside: avoid;
                 overflow: visible !important;
@@ -481,7 +498,8 @@
                 transform-origin: top left !important;
                 width: 100% !important;
             }
-            .mermaid-container svg { max-width: 100% !important; height: auto !important; }
+            .mermaid-container svg,
+            .diagram-zoom-target svg { max-width: 100% !important; height: auto !important; }
             .card, .style-card, .summary-card, .table-wrapper { box-shadow: none; }
         }
     </style>
@@ -739,6 +757,42 @@
             <span class="legend-item"><span class="legend-swatch"></span> Linhas cinzas são dependências normais, fora de qualquer ciclo</span>
         </div>
         {% endif %}
+
+        <!--
+            Print/PDF-only: a separate, server-rendered Graphviz diagram
+            scoped to just the packages involved in a cycle or violation
+            (build_pdf_diagram_svg, scripts/generate-report.py). Mermaid
+            above is hidden in print (see @media print) - this is what
+            actually appears on the page, since it's small and legible
+            regardless of how large the full project graph is. Falls back to
+            explanatory text when Graphviz (the Python package or the 'dot'
+            binary) isn't available, or when there's simply nothing
+            problematic to show.
+        -->
+        <div class="pdf-diagram-only">
+            {% if pdf_diagram_svg %}
+            <h3>Diagrama para impressão (apenas pacotes com ciclo ou violação)</h3>
+            <div class="pdf-diagram-svg">{{ pdf_diagram_svg | safe }}</div>
+            <p class="pdf-diagram-legend">
+                Este diagrama mostra apenas os pacotes envolvidos em ciclos ou violações de
+                camada — uma versão focada e legível para impressão. O diagrama completo e
+                interativo está disponível no report.html.
+                {% if cycles %}Linhas vermelhas indicam dependências que fazem parte de um ciclo.{% endif %}
+            </p>
+            {% else %}
+            <p class="pdf-diagram-fallback">
+                {% if metrics_summary.cycle_count or metrics_summary.violation_count %}
+                O diagrama focado em pacotes problemáticos não pôde ser gerado nesta máquina
+                (Graphviz não está disponível) — consulte as seções de Violações e Ciclos acima
+                para o detalhamento completo, ou abra o report.html para o diagrama interativo
+                completo.
+                {% else %}
+                Nenhum ciclo ou violação de camada foi detectado — sem pacotes problemáticos
+                para destacar aqui. O diagrama completo está disponível no report.html.
+                {% endif %}
+            </p>
+            {% endif %}
+        </div>
     </section>
 
     <footer>

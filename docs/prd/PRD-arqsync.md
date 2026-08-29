@@ -37,6 +37,7 @@ O ArqSync nasce da necessidade pessoal do autor — desenvolvedor em formação 
 - Saída em `arqsync-reports/[timestamp]/`:
   - `report.json` — dados estruturados
   - `report.html` — diagrama Mermaid, lista de ciclos detectados, lista de violações de camada, e métricas descritivas (total de pacotes, total de classes, número de ciclos, número de violações, dependências incoming/outgoing por pacote)
+- Geração de `report.pdf` (via WeasyPrint, dependência opcional com fallback)
 
 ### Fora do v1
 - Métricas de qualidade estrutural (coesão/LCOM, instabilidade/abstração de Robert Martin, distância da sequência principal) ou qualquer métrica que exija análise semântica/ponderação
