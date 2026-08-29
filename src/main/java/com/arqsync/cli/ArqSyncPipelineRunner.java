@@ -54,7 +54,6 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
     private final PersistenceService persistenceService;
     private final ReportExporter reportExporter;
     private final ProcessExiter processExiter;
-    private final PdfConfirmationPrompt pdfConfirmationPrompt;
 
     public ArqSyncPipelineRunner(
             GitRepositoryResolver gitRepositoryResolver,
@@ -62,8 +61,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
             DependencyAnalyzer dependencyAnalyzer,
             PersistenceService persistenceService,
             ReportExporter reportExporter,
-            ProcessExiter processExiter,
-            PdfConfirmationPrompt pdfConfirmationPrompt
+            ProcessExiter processExiter
     ) {
         this.gitRepositoryResolver = gitRepositoryResolver;
         this.scannerService = scannerService;
@@ -71,7 +69,6 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         this.persistenceService = persistenceService;
         this.reportExporter = reportExporter;
         this.processExiter = processExiter;
-        this.pdfConfirmationPrompt = pdfConfirmationPrompt;
     }
 
     @Override
@@ -123,28 +120,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         // null means a fatal error already happened (and was already reported)
         // in runAnalysisPersistenceAndExport, so there is nothing to print here.
         if (outputDir != null) {
-            offerInteractivePdfGeneration(outputDir, generatePdf);
             printFinalOutcome(outputDir, showJson);
-        }
-    }
-
-    /**
-     * If {@code --pdf} wasn't already passed, and report.html was actually
-     * generated (no point asking if the pipeline that would also produce the
-     * PDF already failed), asks the user whether to generate report.pdf now,
-     * reusing the same generation path {@code --pdf} would have used.
-     * {@link PdfConfirmationPrompt} itself is the guard against blocking a
-     * non-interactive run (see {@link ConsolePdfConfirmationPrompt}).
-     */
-    private void offerInteractivePdfGeneration(Path outputDir, boolean alreadyRequestedPdf) {
-        if (alreadyRequestedPdf) {
-            return;
-        }
-        if (!Files.exists(outputDir.resolve("report.html"))) {
-            return;
-        }
-        if (pdfConfirmationPrompt.confirmPdfGeneration()) {
-            reportExporter.generatePdfOnly(outputDir);
         }
     }
 

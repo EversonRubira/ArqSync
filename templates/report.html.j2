@@ -23,6 +23,7 @@
             /* dark blue - brand / informational cards */
             --navy: #16233f;
             --accent: #1d4ed8;
+            --accent-dark: #1638b3;
             --accent-bg: #eaf0fe;
             --accent-border: #c7d7fb;
 
@@ -79,6 +80,32 @@
 
         /* ---- Header ---- */
         header.hero { margin-bottom: 1.75rem; }
+        .hero-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .pdf-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-sans);
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #fff;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            padding: 0.6rem 1.1rem;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            white-space: nowrap;
+            flex: none;
+        }
+        .pdf-btn:hover { background: var(--accent-dark); }
+        .pdf-btn-icon { flex: none; }
         .eyebrow {
             display: inline-block;
             font-size: 0.72rem;
@@ -207,14 +234,6 @@
         .style-card p { margin: 0; color: var(--text-muted); max-width: 70ch; font-size: 0.92rem; }
 
         /* ---- Diagram ---- */
-        .print-only-note {
-            display: none;
-            font-size: 0.85rem;
-            font-style: italic;
-            color: var(--text-muted);
-            margin: -0.4rem 0 1rem;
-        }
-
         .diagram-toolbar {
             display: flex;
             align-items: center;
@@ -418,14 +437,52 @@
         footer code { font-family: var(--font-mono); }
 
         /* ---- Print / PDF ----
-           Zoom controls and the fullscreen modal are meaningless in print
-           (there's no JS execution in the PDF renderer), so hide them and
-           show the diagram at natural size with an explanatory note instead. */
+           Triggered by the "Gerar PDF" button (window.print()) - this runs in
+           the live page, after Mermaid has already rendered the diagram to an
+           inline SVG, so (unlike a headless/non-JS renderer) the actual graph
+           prints correctly, not its source text. Interactive-only controls
+           (nav, zoom, expand) are hidden, the base font size is bumped for
+           legibility on paper (html uses pt so every rem-sized element scales
+           with it), and the page itself prints landscape at A4 - a wide
+           dependency diagram is far more likely to fit without truncation
+           sideways than portrait. The diagram is scaled down slightly
+           (0.75) with page-break-inside:avoid so it isn't cut mid-page even
+           after the layout shrinks it, on top of Mermaid's own nodeSpacing/
+           rankSpacing/wrap already keeping individual labels legible
+           (generate-report.py, MERMAID_INIT).
+
+           transform is !important because the on-screen zoom controls set an
+           inline style="transform: scale(...)" on this same element (see the
+           zoom IIFE below) - a non-important stylesheet rule can never win
+           against a non-important inline style regardless of selector
+           specificity, so without !important here, printing right after
+           zooming in/out on screen carried that zoom level into the PDF
+           (overlapping/oversized text). The zoom IIFE also now resets the
+           inline style to scale(1) around beforeprint/afterprint as a second,
+           independent safeguard - belt and suspenders, since it covers
+           Ctrl+P/browser-menu printing too, not just the "Gerar PDF" button.
+
+           #diagram also gets page-break-before:always: the diagram section
+           is placed last in the document (right before the footer, see the
+           HTML comment there) specifically so it can have a print page
+           entirely to itself - nothing else's text shares that page for the
+           scaled-down SVG to end up overlapping. */
         @media print {
-            .toc, .diagram-toolbar, .diagram-expand-overlay, .diagram-backdrop { display: none !important; }
-            .print-only-note { display: block; }
+            @page { size: A4 landscape; margin: 10mm; }
+            .toc, .pdf-btn, .diagram-toolbar, .diagram-expand-overlay, .diagram-backdrop { display: none !important; }
+            html { font-size: 12pt; }
+            body { font-size: 11pt; padding: 0; }
+            #diagram { page-break-before: always; }
             .diagram-wrapper { position: static !important; max-height: none; overflow: visible; box-shadow: none; }
-            .diagram-zoom-target { transform: none !important; }
+            .mermaid-container {
+                page-break-inside: avoid;
+                overflow: visible !important;
+                transform: scale(0.75) !important;
+                transform-origin: top left !important;
+                width: 100% !important;
+            }
+            .mermaid-container svg { max-width: 100% !important; height: auto !important; }
+            .card, .style-card, .summary-card, .table-wrapper { box-shadow: none; }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
@@ -433,22 +490,36 @@
 <body>
 <main>
     <header class="hero">
-        <span class="eyebrow">Relatório de Arquitetura</span>
-        <h1>ArqSync — <span class="project-name">{{ project_name }}</span></h1>
-        <p class="subtitle">
-            <code>{{ root_path }}</code><br>
-            Gerado em {{ generated_at }}
-        </p>
-        <span class="status-badge severity-{{ status.severity }}">{{ status.headline }}</span>
+        <div class="hero-top">
+            <div class="hero-text">
+                <span class="eyebrow">Relatório de Arquitetura</span>
+                <h1>ArqSync — <span class="project-name">{{ project_name }}</span></h1>
+                <p class="subtitle">
+                    <code>{{ root_path }}</code><br>
+                    Gerado em {{ generated_at }}
+                </p>
+                <span class="status-badge severity-{{ status.severity }}">{{ status.headline }}</span>
+            </div>
+            <button type="button" class="pdf-btn" id="generate-pdf-btn">
+                <svg class="pdf-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+                Gerar PDF
+            </button>
+        </div>
     </header>
 
     <nav class="toc" aria-label="Navegação do relatório">
         <a href="#summary">Resumo</a>
         <a href="#metrics">Métricas</a>
-        <a href="#diagram">Diagrama</a>
         <a href="#violations">Violações</a>
         <a href="#cycles">Ciclos</a>
         <a href="#suggestions">Sugestões</a>
+        <a href="#diagram">Diagrama</a>
     </nav>
 
     <section id="summary">
@@ -541,52 +612,6 @@
         {% endif %}
     </section>
 
-    <section id="diagram">
-        <h2>Diagrama de dependências</h2>
-        <p class="section-intro">
-            Este diagrama mostra as dependências entre pacotes do projeto. Ciclos e violações de
-            camada (detalhados abaixo) são as observações mais relevantes a procurar aqui. Use os
-            controles de zoom ou clique para expandir em tela cheia — útil em projetos com muitos
-            pacotes.
-        </p>
-        <p class="print-only-note">
-            Esta é a versão impressa/PDF: o diagrama abaixo aparece como texto-fonte Mermaid, não
-            como o grafo renderizado — abra o report.html para a versão interativa.
-        </p>
-
-        <!--
-            A single diagram instance, always visible in normal flow (never
-            display:none) - "expand" just toggles a CSS class that repositions
-            this same wrapper to fill the viewport (position: fixed). Mermaid
-            only ever renders this one <pre class="mermaid"> once, on page
-            load, while it's visible - rendering it a second time into a
-            hidden/duplicate container (the previous approach) produces a
-            zero-size, invisible SVG, which is why the expanded view used to
-            look empty.
-        -->
-        <div class="diagram-wrapper diagram-thumbnail" id="diagram-wrapper">
-            <div class="diagram-toolbar" data-diagram-toolbar data-initial-zoom="0.6">
-                <button type="button" class="diagram-btn" data-action="zoom-out" aria-label="Reduzir zoom">−</button>
-                <span class="diagram-zoom-label" data-zoom-label>60%</span>
-                <button type="button" class="diagram-btn" data-action="zoom-in" aria-label="Aumentar zoom">+</button>
-                <button type="button" class="diagram-btn" data-action="zoom-reset">Redefinir</button>
-                <button type="button" class="diagram-btn diagram-btn-expand" data-toggle-diagram>⤢ Expandir diagrama</button>
-            </div>
-            <div class="diagram-zoom-target" data-zoom-target>
-                <pre class="mermaid">{{ mermaid_diagram }}</pre>
-            </div>
-            <button type="button" class="diagram-expand-overlay" data-toggle-diagram>🔍 Clique para expandir</button>
-        </div>
-        <div class="diagram-backdrop" data-diagram-backdrop></div>
-
-        {% if cycles %}
-        <div class="diagram-legend">
-            <span class="legend-item"><span class="legend-swatch cycle-edge"></span> Linhas vermelhas indicam dependências que fazem parte de um ciclo</span>
-            <span class="legend-item"><span class="legend-swatch"></span> Linhas cinzas são dependências normais, fora de qualquer ciclo</span>
-        </div>
-        {% endif %}
-    </section>
-
     <section id="violations">
         <h2>Violações de camada <span class="count-pill">{{ violations | length }}</span></h2>
         {% if violations %}
@@ -667,6 +692,55 @@
         {% endif %}
     </section>
 
+    <section id="diagram">
+        <h2>Diagrama de dependências</h2>
+        <p class="section-intro">
+            Este diagrama mostra as dependências entre pacotes do projeto. Ciclos e violações de
+            camada (detalhados acima) são as observações mais relevantes a procurar aqui. Use os
+            controles de zoom ou clique para expandir em tela cheia — útil em projetos com muitos
+            pacotes.
+        </p>
+
+        <!--
+            A single diagram instance, always visible in normal flow (never
+            display:none) - "expand" just toggles a CSS class that repositions
+            this same wrapper to fill the viewport (position: fixed). Mermaid
+            only ever renders this one <pre class="mermaid"> once, on page
+            load, while it's visible - rendering it a second time into a
+            hidden/duplicate container (the previous approach) produces a
+            zero-size, invisible SVG, which is why the expanded view used to
+            look empty.
+
+            Placed last, right before the footer: on screen this is just
+            reading order, but in print it means the diagram is the only
+            thing on its own page (page-break-before below) - since nothing
+            else shares that page, there's no text left for its scaled-down
+            SVG to overlap.
+        -->
+        <div class="diagram-wrapper diagram-thumbnail" id="diagram-wrapper">
+            <div class="diagram-toolbar" data-diagram-toolbar data-initial-zoom="0.75">
+                <button type="button" class="diagram-btn" data-action="zoom-out" aria-label="Reduzir zoom">−</button>
+                <span class="diagram-zoom-label" data-zoom-label>75%</span>
+                <button type="button" class="diagram-btn" data-action="zoom-in" aria-label="Aumentar zoom">+</button>
+                <button type="button" class="diagram-btn" data-action="zoom-reset">Redefinir</button>
+                <button type="button" class="diagram-btn" data-export-png>⬇ Exportar PNG</button>
+                <button type="button" class="diagram-btn diagram-btn-expand" data-toggle-diagram>⤢ Expandir diagrama</button>
+            </div>
+            <div class="diagram-zoom-target mermaid-container" data-zoom-target>
+                <pre class="mermaid">{{ mermaid_diagram }}</pre>
+            </div>
+            <button type="button" class="diagram-expand-overlay" data-toggle-diagram>🔍 Clique para expandir</button>
+        </div>
+        <div class="diagram-backdrop" data-diagram-backdrop></div>
+
+        {% if cycles %}
+        <div class="diagram-legend">
+            <span class="legend-item"><span class="legend-swatch cycle-edge"></span> Linhas vermelhas indicam dependências que fazem parte de um ciclo</span>
+            <span class="legend-item"><span class="legend-swatch"></span> Linhas cinzas são dependências normais, fora de qualquer ciclo</span>
+        </div>
+        {% endif %}
+    </section>
+
     <footer>
         <p class="footer-brand">Gerado por ArqSync v1.2.0</p>
         <p class="footer-note">
@@ -679,6 +753,19 @@
 </main>
 <script>
     mermaid.initialize({ startOnLoad: true, theme: "neutral" });
+
+    // "Gerar PDF" - delegates to the browser's own print pipeline. Every
+    // major browser's print dialog offers "Save as PDF" (or prints straight
+    // to a real printer) without any extra code here; the @media print rules
+    // above are what make that output look right.
+    (function () {
+        var pdfButton = document.getElementById('generate-pdf-btn');
+        if (pdfButton) {
+            pdfButton.addEventListener('click', function () {
+                window.print();
+            });
+        }
+    })();
 
     // Diagram zoom/pan (transform: scale() + native scroll) and the
     // fullscreen "expand" toggle. Vanilla JS, no external library.
@@ -702,6 +789,14 @@
         var expandButtons = document.querySelectorAll('[data-toggle-diagram]');
         var toolbarExpandBtn = wrapper.querySelector('.diagram-btn-expand');
 
+        // Step/bounds in quarters (25%) so values land on round percentages
+        // starting from the 75% default - legible out of the box even with
+        // long, wrapped package names, with headroom up to 400% to zoom into
+        // detail and down to 25% to fit very large diagrams on screen.
+        var ZOOM_STEP = 0.25;
+        var ZOOM_MIN = 0.25;
+        var ZOOM_MAX = 4;
+
         if (toolbar && target) {
             var initial = parseFloat(toolbar.getAttribute('data-initial-zoom')) || 1;
             var zoom = initial;
@@ -715,14 +810,97 @@
             toolbar.querySelectorAll('[data-action]').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     var action = btn.getAttribute('data-action');
-                    if (action === 'zoom-in') zoom = Math.min(zoom + 0.2, 3);
-                    else if (action === 'zoom-out') zoom = Math.max(zoom - 0.2, 0.2);
+                    if (action === 'zoom-in') zoom = Math.min(zoom + ZOOM_STEP, ZOOM_MAX);
+                    else if (action === 'zoom-out') zoom = Math.max(zoom - ZOOM_STEP, ZOOM_MIN);
                     else if (action === 'zoom-reset') zoom = initial;
                     applyZoom();
                 });
             });
 
             applyZoom();
+        }
+
+        // Neutralize the on-screen zoom for printing/PDF: the interactive
+        // zoom controls set an inline transform on `target`, which (being
+        // inline) would otherwise override even the @media print rule above
+        // for scale/transform-origin. Reset to scale(1) right before print
+        // and put the user's on-screen zoom back right after, so print never
+        // inherits whatever zoom level the page happened to be at - the
+        // print CSS's own scale(0.75) is the only thing that applies.
+        // beforeprint/afterprint (not the "Gerar PDF" click handler) so this
+        // also covers Ctrl+P and the browser's own print menu, not just our
+        // button.
+        if (target) {
+            window.addEventListener('beforeprint', function () {
+                target.dataset.zoomBeforePrint = target.style.transform;
+                target.style.transform = 'scale(1)';
+            });
+            window.addEventListener('afterprint', function () {
+                if (target.dataset.zoomBeforePrint !== undefined) {
+                    target.style.transform = target.dataset.zoomBeforePrint;
+                    delete target.dataset.zoomBeforePrint;
+                }
+            });
+        }
+
+        // "Exportar PNG" - rasterizes the already-rendered Mermaid SVG via a
+        // plain <canvas> (no html2canvas/extra library): serialize the SVG,
+        // draw it into an offscreen canvas at 2x its intrinsic size for a
+        // crisp export, then trigger a normal file download. Uses the SVG's
+        // own viewBox for sizing so the export is full resolution regardless
+        // of the on-screen zoom level at the time of the click.
+        var exportButton = toolbar && toolbar.querySelector('[data-export-png]');
+        if (exportButton && target) {
+            exportButton.addEventListener('click', function () {
+                var svg = target.querySelector('svg');
+                if (!svg) {
+                    window.alert('O diagrama ainda não terminou de renderizar - tente novamente em instantes.');
+                    return;
+                }
+
+                var clone = svg.cloneNode(true);
+                if (!clone.getAttribute('xmlns')) {
+                    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                }
+
+                var viewBox = svg.viewBox && svg.viewBox.baseVal;
+                var width = (viewBox && viewBox.width) || parseFloat(svg.getAttribute('width')) || svg.clientWidth || 800;
+                var height = (viewBox && viewBox.height) || parseFloat(svg.getAttribute('height')) || svg.clientHeight || 600;
+                var exportScale = 2;
+
+                var svgData = new XMLSerializer().serializeToString(clone);
+                var svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                var svgUrl = URL.createObjectURL(svgBlob);
+
+                var img = new Image();
+                img.onload = function () {
+                    var canvas = document.createElement('canvas');
+                    canvas.width = width * exportScale;
+                    canvas.height = height * exportScale;
+                    var ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(svgUrl);
+
+                    canvas.toBlob(function (pngBlob) {
+                        if (!pngBlob) {
+                            window.alert('Não foi possível exportar o diagrama como PNG neste navegador.');
+                            return;
+                        }
+                        var link = document.createElement('a');
+                        link.download = 'arqsync-diagrama.png';
+                        link.href = URL.createObjectURL(pngBlob);
+                        link.click();
+                        URL.revokeObjectURL(link.href);
+                    });
+                };
+                img.onerror = function () {
+                    URL.revokeObjectURL(svgUrl);
+                    window.alert('Não foi possível exportar o diagrama como PNG neste navegador.');
+                };
+                img.src = svgUrl;
+            });
         }
 
         function setFullscreen(on) {

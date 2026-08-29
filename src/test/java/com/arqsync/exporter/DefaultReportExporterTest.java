@@ -119,26 +119,4 @@ class DefaultReportExporterTest {
         assertThat(outputDir.resolve("report.json")).exists();
         assertThat(outputDir.resolve("report.html")).exists();
     }
-
-    @Test
-    void generatePdfOnlyReusesTheExistingReportJsonWithoutRedoingTheExport(@TempDir Path outputDir)
-            throws URISyntaxException {
-        // Simulates the interactive "Generate PDF report? (y/N)" follow-up:
-        // export() already ran (without --pdf) in an earlier step, and now
-        // only the PDF needs to be produced from the report.json already on disk.
-        HtmlReportGenerator htmlReportGenerator =
-                new DefaultHtmlReportGenerator(realScriptPath(), DefaultHtmlReportGenerator.DEFAULT_PYTHON_COMMANDS);
-        ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
-        exporter.export(projectScan(), emptyAnalysisResult(), outputDir, false);
-        assertThat(outputDir.resolve("report.html")).exists();
-
-        assertThatCode(() -> exporter.generatePdfOnly(outputDir)).doesNotThrowAnyException();
-
-        // report.pdf itself depends on the optional PDF library being usable
-        // in this environment (best-effort, same as elsewhere in this class) -
-        // what must always hold is that this call never throws and doesn't
-        // disturb the artifacts already on disk.
-        assertThat(outputDir.resolve("report.json")).exists();
-        assertThat(outputDir.resolve("report.html")).exists();
-    }
 }

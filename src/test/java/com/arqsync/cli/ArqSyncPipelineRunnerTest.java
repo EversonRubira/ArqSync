@@ -50,13 +50,12 @@ class ArqSyncPipelineRunnerTest {
     private final PersistenceService persistenceService = mock(PersistenceService.class);
     private final ReportExporter reportExporter = mock(ReportExporter.class);
     private final ProcessExiter processExiter = mock(ProcessExiter.class);
-    private final PdfConfirmationPrompt pdfConfirmationPrompt = mock(PdfConfirmationPrompt.class);
 
     private final GitRepositoryResolver gitRepositoryResolver = new GitRepositoryResolver();
 
     private final ArqSyncPipelineRunner runner = new ArqSyncPipelineRunner(
             gitRepositoryResolver, scannerService, dependencyAnalyzer, persistenceService, reportExporter,
-            processExiter, pdfConfirmationPrompt
+            processExiter
     );
 
     private Path createdOutputDir;
@@ -234,7 +233,7 @@ class ArqSyncPipelineRunnerTest {
         );
         ArqSyncPipelineRunner realishRunner = new ArqSyncPipelineRunner(
                 gitRepositoryResolver, realScanner, realAnalyzer, persistenceService, reportExporter,
-                processExiter, pdfConfirmationPrompt
+                processExiter
         );
         Path fixture = Paths.get(Objects.requireNonNull(
                 getClass().getClassLoader().getResource("fixtures/scanner/valid-project")
@@ -269,7 +268,7 @@ class ArqSyncPipelineRunnerTest {
     private ArqSyncPipelineRunner runnerWithMockedGitResolver(GitRepositoryResolver mockResolver) {
         return new ArqSyncPipelineRunner(
                 mockResolver, scannerService, dependencyAnalyzer, persistenceService, reportExporter,
-                processExiter, pdfConfirmationPrompt
+                processExiter
         );
     }
 
@@ -480,91 +479,6 @@ class ArqSyncPipelineRunnerTest {
         String output = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", true, false)));
 
         assertThat(output).doesNotContain("PDF also available at");
-    }
-
-    @Test
-    void interactivePromptIsSkippedWhenPdfFlagAlreadyPassed() {
-        ProjectScan projectScan = aProjectScan();
-        AnalysisResult analysisResult = anAnalysisResult();
-        when(scannerService.scan(any())).thenReturn(projectScan);
-        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
-        doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
-            createdOutputDir = outputDir;
-            Files.createDirectories(outputDir);
-            Files.writeString(outputDir.resolve("report.html"), "<html></html>");
-            return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
-
-        runner.run(argsWithPdfAndJson("/repo/my-project", true, false));
-
-        verifyNoInteractions(pdfConfirmationPrompt);
-        verify(reportExporter, never()).generatePdfOnly(any());
-    }
-
-    @Test
-    void interactivePromptIsSkippedWhenHtmlWasNotGenerated() {
-        ProjectScan projectScan = aProjectScan();
-        AnalysisResult analysisResult = anAnalysisResult();
-        when(scannerService.scan(any())).thenReturn(projectScan);
-        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
-        doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
-            createdOutputDir = outputDir;
-            Files.createDirectories(outputDir);
-            // no report.html written - simulates Python being unavailable
-            return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
-
-        runner.run(argsWithPdfAndJson("/repo/my-project", false, false));
-
-        verifyNoInteractions(pdfConfirmationPrompt);
-    }
-
-    @Test
-    void interactivePromptConfirmedTriggersPdfGenerationAndItsPathIsPrinted() throws IOException {
-        ProjectScan projectScan = aProjectScan();
-        AnalysisResult analysisResult = anAnalysisResult();
-        when(scannerService.scan(any())).thenReturn(projectScan);
-        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
-        doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
-            createdOutputDir = outputDir;
-            Files.createDirectories(outputDir);
-            Files.writeString(outputDir.resolve("report.html"), "<html></html>");
-            return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
-        when(pdfConfirmationPrompt.confirmPdfGeneration()).thenReturn(true);
-        doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(0);
-            Files.writeString(outputDir.resolve("report.pdf"), "%PDF-1.4");
-            return null;
-        }).when(reportExporter).generatePdfOnly(any());
-
-        String output = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", false, false)));
-
-        verify(reportExporter).generatePdfOnly(createdOutputDir);
-        assertThat(output).contains("PDF also available at");
-    }
-
-    @Test
-    void interactivePromptDeclinedDoesNotGeneratePdf() {
-        ProjectScan projectScan = aProjectScan();
-        AnalysisResult analysisResult = anAnalysisResult();
-        when(scannerService.scan(any())).thenReturn(projectScan);
-        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
-        doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
-            createdOutputDir = outputDir;
-            Files.createDirectories(outputDir);
-            Files.writeString(outputDir.resolve("report.html"), "<html></html>");
-            return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
-        when(pdfConfirmationPrompt.confirmPdfGeneration()).thenReturn(false);
-
-        runner.run(argsWithPdfAndJson("/repo/my-project", false, false));
-
-        verify(reportExporter, never()).generatePdfOnly(any());
     }
 
     private String captureStdout(Runnable action) {

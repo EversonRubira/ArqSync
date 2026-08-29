@@ -39,10 +39,4 @@ public class DefaultReportExporter implements ReportExporter {
             log.warn("report.html was not generated; report.json is available at {}", jsonPath);
         }
     }
-
-    @Override
-    public void generatePdfOnly(Path outputDir) {
-        Path jsonPath = outputDir.resolve("report.json");
-        htmlReportGenerator.generate(jsonPath, outputDir, true);
-    }
 }
