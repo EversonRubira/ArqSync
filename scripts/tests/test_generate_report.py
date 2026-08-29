@@ -102,7 +102,8 @@ def test_mermaid_diagram_matches_a_small_known_graph():
     diagram = gr.build_mermaid_diagram(dependency_graph)
 
     lines = diagram.splitlines()
-    assert lines[0] == "graph TD"
+    assert lines[0] == gr.MERMAID_INIT
+    assert lines[1] == "graph TD"
     assert '    n0["a"]' in lines
     assert '    n1["b"]' in lines
     assert "    n0 --> n1" in lines
@@ -111,7 +112,38 @@ def test_mermaid_diagram_matches_a_small_known_graph():
 def test_mermaid_diagram_for_empty_graph_does_not_crash():
     diagram = gr.build_mermaid_diagram({"nodes": [], "edges": []})
 
-    assert diagram.startswith("graph TD")
+    assert "graph TD" in diagram
+
+
+def test_mermaid_diagram_highlights_edges_that_are_part_of_a_cycle():
+    dependency_graph = {
+        "nodes": [{"value": "a"}, {"value": "b"}, {"value": "c"}],
+        "edges": [
+            {"from": {"value": "a"}, "to": {"value": "b"}},
+            {"from": {"value": "b"}, "to": {"value": "a"}},
+            {"from": {"value": "a"}, "to": {"value": "c"}},
+        ],
+    }
+    cycles = [{"path": [{"value": "a"}, {"value": "b"}, {"value": "a"}]}]
+
+    diagram = gr.build_mermaid_diagram(dependency_graph, cycles)
+
+    lines = diagram.splitlines()
+    # edge 0 (a->b) and edge 1 (b->a) are the cycle; edge 2 (a->c) is not.
+    assert "    linkStyle 0 stroke:#c11d3a,stroke-width:2.5px;" in lines
+    assert "    linkStyle 1 stroke:#c11d3a,stroke-width:2.5px;" in lines
+    assert not any(line.startswith("    linkStyle 2 ") for line in lines)
+
+
+def test_mermaid_diagram_without_cycles_has_no_link_styles():
+    dependency_graph = {
+        "nodes": [{"value": "a"}, {"value": "b"}],
+        "edges": [{"from": {"value": "a"}, "to": {"value": "b"}}],
+    }
+
+    diagram = gr.build_mermaid_diagram(dependency_graph, cycles=[])
+
+    assert "linkStyle" not in diagram
 
 
 def test_status_view_with_no_problems_is_ok():
@@ -156,16 +188,239 @@ def test_metrics_summary_view_counts_edges_as_total_dependencies():
     }
 
 
-def test_suggestions_view_combines_violations_then_cycles_in_order():
-    violations_view = [{"from": "com.acme.controller", "to": "com.acme.repository", "suggestion": "fix violation"}]
-    cycles_view = [{"path": "com.acme.a → com.acme.b → com.acme.a", "suggestion": "fix cycle"}]
+def test_suggestions_view_ranks_by_impact_descending():
+    # violation impact = class_sample_count; cycle impact = length (packages spanned)
+    violations_view = [{
+        "from": "com.acme.controller", "to": "com.acme.repository",
+        "suggestion": "fix violation", "class_sample_count": 1,
+    }]
+    cycles_view = [{
+        "path": "com.acme.a → com.acme.b → com.acme.c → com.acme.a",
+        "suggestion": "fix cycle", "length": 3,
+    }]
 
     suggestions = gr.build_suggestions_view(violations_view, cycles_view)
 
+    # the 3-package cycle (impact 3) outranks the 1-sample violation (impact 1)
     assert suggestions == [
-        {"kind": "violation", "context": "com.acme.controller → com.acme.repository", "text": "fix violation"},
-        {"kind": "cycle", "context": "com.acme.a → com.acme.b → com.acme.a", "text": "fix cycle"},
+        {
+            "kind": "cycle",
+            "context": "com.acme.a → com.acme.b → com.acme.c → com.acme.a",
+            "text": "fix cycle",
+            "impact": 3,
+            "impact_label": "3 pacotes",
+        },
+        {
+            "kind": "violation",
+            "context": "com.acme.controller → com.acme.repository",
+            "text": "fix violation",
+            "impact": 1,
+            "impact_label": "1 classe (amostra)",
+        },
     ]
+
+
+def test_suggestions_view_violation_without_class_samples_has_no_impact_label():
+    violations_view = [{
+        "from": "com.acme.a", "to": "com.acme.b",
+        "suggestion": "fix it", "class_sample_count": 0,
+    }]
+
+    suggestions = gr.build_suggestions_view(violations_view, [])
+
+    assert suggestions[0]["impact_label"] == ""
+
+
+def test_dependency_counts_view_sorted_by_incoming_descending():
+    metrics = {
+        "dependencyCounts": [
+            {"pkg": {"value": "com.acme.low"}, "incoming": 1, "outgoing": 0},
+            {"pkg": {"value": "com.acme.high"}, "incoming": 5, "outgoing": 2},
+            {"pkg": {"value": "com.acme.mid"}, "incoming": 3, "outgoing": 1},
+        ]
+    }
+
+    counts = gr.build_dependency_counts_view(metrics)
+
+    assert [c["package"] for c in counts] == ["com.acme.high", "com.acme.mid", "com.acme.low"]
+
+
+def test_cycle_groups_single_module_cycle_is_grouped_and_labeled():
+    # A sibling module (pagamento) is included so the shared-prefix heuristic
+    # stops at "com.acme", not "com.acme.matricula" - otherwise, with only
+    # one module in the whole graph, "service"/"repository" would themselves
+    # look like the module segment.
+    dependency_graph = {"nodes": [
+        {"value": "com.acme.matricula.service"}, {"value": "com.acme.matricula.repository"},
+        {"value": "com.acme.pagamento.service"},
+    ]}
+    raw_cycles = [{"path": [
+        {"value": "com.acme.matricula.service"}, {"value": "com.acme.matricula.repository"},
+        {"value": "com.acme.matricula.service"},
+    ]}]
+    cycles_view = gr.build_cycles_view(
+        [{**raw_cycles[0], "explanation": "e", "suggestion": "s"}]
+    )
+
+    groups = gr.build_cycle_groups(cycles_view, raw_cycles, dependency_graph)
+
+    assert len(groups) == 1
+    assert groups[0]["label"] == "Ciclos no módulo matricula (1 ciclo)"
+    assert len(groups[0]["cycles"]) == 1
+
+
+def test_cycle_groups_cross_module_cycle_is_labeled_as_between_modules():
+    dependency_graph = {"nodes": [
+        {"value": "com.acme.matricula.service"}, {"value": "com.acme.pagamento.service"},
+    ]}
+    raw_cycles = [{"path": [
+        {"value": "com.acme.matricula.service"}, {"value": "com.acme.pagamento.service"},
+        {"value": "com.acme.matricula.service"},
+    ]}]
+    cycles_view = gr.build_cycles_view(
+        [{**raw_cycles[0], "explanation": "e", "suggestion": "s"}]
+    )
+
+    groups = gr.build_cycle_groups(cycles_view, raw_cycles, dependency_graph)
+
+    assert groups[0]["label"] == "Ciclos entre os módulos matricula e pagamento (1 ciclo)"
+
+
+def test_cycle_groups_multiple_cycles_in_same_module_are_combined_and_counted():
+    dependency_graph = {"nodes": [
+        {"value": "com.acme.matricula.a"}, {"value": "com.acme.matricula.b"},
+        {"value": "com.acme.pagamento.x"},
+    ]}
+    one_cycle_path = [
+        {"value": "com.acme.matricula.a"}, {"value": "com.acme.matricula.b"}, {"value": "com.acme.matricula.a"}
+    ]
+    raw_cycles = [{"path": one_cycle_path}, {"path": one_cycle_path}]
+    cycles_view = gr.build_cycles_view(
+        [{**c, "explanation": "e", "suggestion": "s"} for c in raw_cycles]
+    )
+
+    groups = gr.build_cycle_groups(cycles_view, raw_cycles, dependency_graph)
+
+    assert len(groups) == 1
+    assert groups[0]["label"] == "Ciclos no módulo matricula (2 ciclos)"
+
+
+def test_hotspot_modules_ranks_module_with_most_problems_first():
+    dependency_graph = {"nodes": [
+        {"value": "com.acme.matricula.a"}, {"value": "com.acme.matricula.b"}, {"value": "com.acme.pagamento.x"},
+    ]}
+    raw_cycles = [{"path": [
+        {"value": "com.acme.matricula.a"}, {"value": "com.acme.matricula.b"}, {"value": "com.acme.matricula.a"},
+    ]}]
+    violations_view = [{"from": "com.acme.matricula.a", "to": "com.acme.matricula.b"}]
+
+    hotspots = gr.build_hotspot_modules(raw_cycles, violations_view, dependency_graph)
+
+    assert hotspots[0]["module"] == "matricula"
+    assert hotspots[0]["count"] > 0
+
+
+def test_hotspot_modules_empty_when_no_cycles_or_violations():
+    dependency_graph = {"nodes": [{"value": "com.acme.a"}]}
+
+    hotspots = gr.build_hotspot_modules([], [], dependency_graph)
+
+    assert hotspots == []
+
+
+def test_mermaid_init_header_requests_18px_fonts():
+    diagram = gr.build_mermaid_diagram({"nodes": [{"value": "a"}], "edges": []})
+
+    assert "'fontSize': '18px'" in diagram
+    assert "'nodeFontSize': '18px'" in diagram
+
+
+def test_mermaid_init_header_requests_spacing_and_wrap_config():
+    diagram = gr.build_mermaid_diagram({"nodes": [{"value": "a"}], "edges": []})
+
+    assert "'nodeSpacing': 150" in diagram
+    assert "'rankSpacing': 150" in diagram
+    assert "'nodeWidth': 200" in diagram
+    assert "'wrap': true" in diagram
+    assert "'maxWidth': 200" in diagram
+
+
+def test_wrap_package_name_leaves_short_names_unchanged():
+    assert gr.wrap_package_name_for_diagram("com.acme.service") == "com.acme.service"
+
+
+def test_wrap_package_name_splits_long_names_in_half_by_segment():
+    name = "br.com.caelum.cursos.adapters.database.jpa.entity"
+
+    wrapped = gr.wrap_package_name_for_diagram(name)
+
+    assert wrapped == "br.com.caelum.cursos<br/>adapters.database.jpa.entity"
+
+
+def test_wrap_package_name_exactly_at_threshold_is_unchanged():
+    # WRAP_AFTER_SEGMENTS is 3 - exactly 3 segments must not be wrapped, only >3
+    assert gr.wrap_package_name_for_diagram("com.acme.service") == "com.acme.service"
+    assert "<br/>" in gr.wrap_package_name_for_diagram("com.acme.service.impl")
+
+
+def test_mermaid_diagram_wraps_long_package_names_in_node_labels():
+    dependency_graph = {
+        "nodes": [{"value": "br.com.caelum.cursos.adapters.database.jpa.entity"}],
+        "edges": [],
+    }
+
+    diagram = gr.build_mermaid_diagram(dependency_graph)
+
+    assert 'n0["br.com.caelum.cursos<br/>adapters.database.jpa.entity"]' in diagram
+
+
+def test_generate_pdf_gracefully_skips_when_weasyprint_is_unavailable(monkeypatch, tmp_path, capsys):
+    # Forces "from weasyprint import HTML" to raise ImportError regardless of
+    # whether weasyprint is actually installed in this environment - the
+    # simplest reliable way to exercise the "package unavailable" path.
+    monkeypatch.setitem(sys.modules, "weasyprint", None)
+    output_path = tmp_path / "report.pdf"
+
+    result = gr.generate_pdf("<html><body>x</body></html>", output_path)
+
+    assert result is False
+    assert not output_path.exists()
+    assert "Warning" in capsys.readouterr().err
+
+
+def test_generate_pdf_gracefully_handles_native_library_load_failure(monkeypatch, tmp_path, capsys):
+    # Simulates WeasyPrint's real Windows-without-GTK failure mode: it raises
+    # OSError (not ImportError) right at import time.
+    import types
+    fake_module = types.ModuleType("weasyprint")
+
+    def _raise_oserror():
+        raise OSError("cannot load library 'libgobject-2.0-0'")
+
+    fake_module.__getattr__ = lambda name: _raise_oserror()
+    monkeypatch.setitem(sys.modules, "weasyprint", fake_module)
+    output_path = tmp_path / "report.pdf"
+
+    result = gr.generate_pdf("<html><body>x</body></html>", output_path)
+
+    assert result is False
+    assert not output_path.exists()
+    assert "Warning" in capsys.readouterr().err
+
+
+def test_main_with_pdf_flag_still_succeeds_and_writes_html_regardless_of_pdf_outcome(tmp_path):
+    # report.pdf itself is environment-dependent (needs weasyprint's native
+    # libraries); what must always hold is that --pdf never breaks the run.
+    json_path = tmp_path / "report.json"
+    json_path.write_text(
+        json.dumps(load_fixture("with-cycle-and-violation.json")), encoding="utf-8"
+    )
+    output_dir = tmp_path / "out"
+
+    exit_code = gr.main(["--json-path", str(json_path), "--output-dir", str(output_dir), "--pdf"])
+
+    assert exit_code == 0
+    assert (output_dir / "report.html").exists()
 
 
 if __name__ == "__main__":

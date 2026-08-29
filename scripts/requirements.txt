@@ -1,2 +1,10 @@
 jinja2>=3.1
 pytest>=8.0
+
+# Optional: only needed for --pdf. `pip install` always succeeds, but actually
+# rendering a PDF also needs WeasyPrint's native Pango/cairo libraries, which
+# are not bundled by pip - notably on Windows, where they require a separate
+# GTK runtime install (see https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation).
+# Missing this at runtime is not fatal: generate-report.py logs a warning and
+# skips report.pdf instead of failing the whole run.
+weasyprint>=69.0

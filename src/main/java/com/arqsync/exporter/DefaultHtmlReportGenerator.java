@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,6 +29,7 @@ public class DefaultHtmlReportGenerator implements HtmlReportGenerator {
     private static final Logger log = LoggerFactory.getLogger(DefaultHtmlReportGenerator.class);
     static final List<String> DEFAULT_PYTHON_COMMANDS = List.of("python", "py", "python3");
     private static final String REPORT_HTML = "report.html";
+    private static final String REPORT_PDF = "report.pdf";
 
     private final Path scriptPath;
     private final List<String> pythonCommands;
@@ -46,11 +48,11 @@ public class DefaultHtmlReportGenerator implements HtmlReportGenerator {
     }
 
     @Override
-    public boolean generate(Path jsonPath, Path outputDir) {
-        log.debug("Generating report.html from {} into {} using script {} (interpreter candidates: {})",
-                jsonPath, outputDir, scriptPath, pythonCommands);
+    public boolean generate(Path jsonPath, Path outputDir, boolean generatePdf) {
+        log.debug("Generating report.html from {} into {} using script {} (interpreter candidates: {}, pdf: {})",
+                jsonPath, outputDir, scriptPath, pythonCommands, generatePdf);
         for (String pythonCommand : pythonCommands) {
-            Optional<Boolean> result = tryGenerate(pythonCommand, jsonPath, outputDir);
+            Optional<Boolean> result = tryGenerate(pythonCommand, jsonPath, outputDir, generatePdf);
             if (result.isPresent()) {
                 return result.get();
             }
@@ -60,12 +62,15 @@ public class DefaultHtmlReportGenerator implements HtmlReportGenerator {
         return false;
     }
 
-    private Optional<Boolean> tryGenerate(String pythonCommand, Path jsonPath, Path outputDir) {
-        List<String> command = List.of(
+    private Optional<Boolean> tryGenerate(String pythonCommand, Path jsonPath, Path outputDir, boolean generatePdf) {
+        List<String> command = new ArrayList<>(List.of(
                 pythonCommand, scriptPath.toString(),
                 "--json-path", jsonPath.toString(),
                 "--output-dir", outputDir.toString()
-        );
+        ));
+        if (generatePdf) {
+            command.add("--pdf");
+        }
         log.debug("Attempting report.html generation with: {}", command);
         ProcessBuilder processBuilder = new ProcessBuilder(command)
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD);
@@ -86,6 +91,13 @@ public class DefaultHtmlReportGenerator implements HtmlReportGenerator {
                 log.error("generate-report.py exited successfully but {} was not found in {}", REPORT_HTML, outputDir);
             } else {
                 log.debug("report.html generated successfully using '{}'", pythonCommand);
+                // PDF generation is best-effort and doesn't affect this method's
+                // return value (exit code stays 0 even when it's skipped) - but
+                // that also means its stderr warning is never logged below, so
+                // surface it explicitly here instead of silently dropping it.
+                if (generatePdf && !Files.exists(outputDir.resolve(REPORT_PDF)) && !stderr.isBlank()) {
+                    log.warn("report.pdf was requested but not generated: {}", stderr.strip());
+                }
             }
             return Optional.of(htmlExists);
         } catch (IOException e) {

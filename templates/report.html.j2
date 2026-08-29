@@ -44,6 +44,7 @@
             --shadow: 0 1px 2px rgba(20, 24, 33, 0.04), 0 6px 20px rgba(20, 24, 33, 0.05);
         }
         * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
         body {
             margin: 0;
             padding: 2.5rem 1.5rem 4rem;
@@ -55,6 +56,26 @@
             -webkit-font-smoothing: antialiased;
         }
         main { max-width: 1000px; margin: 0 auto; }
+        section { scroll-margin-top: 1.5rem; }
+
+        /* ---- Table of contents ---- */
+        .toc {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-bottom: 1.75rem;
+        }
+        .toc a {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--navy);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.3rem 0.85rem;
+            text-decoration: none;
+        }
+        .toc a:hover { background: var(--surface-alt); }
 
         /* ---- Header ---- */
         header.hero { margin-bottom: 1.75rem; }
@@ -167,6 +188,12 @@
         }
         .summary-card .summary-value { font-size: 1.15rem; font-weight: 700; margin-top: 0.3rem; color: var(--text); }
         .summary-card .summary-detail { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem; }
+        .hotspot-line {
+            margin: 0.85rem 0 0;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+        }
+        .hotspot-line strong { color: var(--text); }
 
         /* ---- Architecture style card (informational -> blue) ---- */
         .style-card {
@@ -180,14 +207,108 @@
         .style-card p { margin: 0; color: var(--text-muted); max-width: 70ch; font-size: 0.92rem; }
 
         /* ---- Diagram ---- */
+        .print-only-note {
+            display: none;
+            font-size: 0.85rem;
+            font-style: italic;
+            color: var(--text-muted);
+            margin: -0.4rem 0 1rem;
+        }
+
+        .diagram-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-bottom: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .diagram-btn {
+            font-family: var(--font-sans);
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--navy);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.3rem 0.75rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .diagram-btn:hover { background: var(--surface-alt); }
+        .diagram-btn-expand { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
+        .diagram-zoom-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            min-width: 3ch;
+            text-align: center;
+        }
+
+        /* Single diagram instance: the wrapper is repositioned via the
+           .is-fullscreen class rather than duplicated into a separate modal -
+           see the HTML comment above the diagram markup for why. */
         .diagram-wrapper {
+            position: relative;
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 1.1rem;
-            overflow-x: auto;
+            max-width: 100%;
+            overflow: auto;
             box-shadow: var(--shadow);
         }
+        .diagram-wrapper.diagram-thumbnail { max-height: 280px; }
+        .diagram-zoom-target { transform-origin: top left; transition: transform 0.15s ease; }
+        .diagram-expand-overlay {
+            position: absolute;
+            bottom: 0.9rem;
+            right: 0.9rem;
+            font-family: var(--font-sans);
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--surface);
+            background: rgba(22, 35, 63, 0.85);
+            border: none;
+            border-radius: 999px;
+            padding: 0.45rem 0.95rem;
+            cursor: pointer;
+        }
+
+        .diagram-wrapper.is-fullscreen {
+            position: fixed;
+            inset: 1.25rem;
+            z-index: 1000;
+            max-height: none;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+        }
+        .diagram-wrapper.is-fullscreen .diagram-expand-overlay { display: none; }
+        .diagram-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 999;
+            background: rgba(20, 24, 33, 0.85);
+        }
+        .diagram-backdrop.is-visible { display: block; }
+
+        .diagram-legend {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem 1.25rem;
+            margin-top: 0.75rem;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+        .diagram-legend .legend-item { display: inline-flex; align-items: center; gap: 0.4rem; }
+        .diagram-legend .legend-swatch {
+            display: inline-block;
+            width: 1.4rem;
+            height: 3px;
+            border-radius: 2px;
+            background: var(--border);
+        }
+        .diagram-legend .legend-swatch.cycle-edge { background: var(--danger); }
 
         /* ---- Cards: violations / cycles / suggestions ---- */
         .card-list { display: flex; flex-direction: column; gap: 0.85rem; }
@@ -232,13 +353,31 @@
         .card-suggestion .suggestion-label { color: var(--text); font-weight: 600; }
 
         /* ---- Suggestions section ---- */
+        .suggestion-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .suggestion-priority { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); }
+        .suggestion-impact {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--accent);
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-border);
+            border-radius: 999px;
+            padding: 0.1rem 0.55rem;
+        }
         .suggestion-context {
             font-family: var(--font-mono);
             font-size: 0.85rem;
             color: var(--text-muted);
-            margin: 0 0 0.3rem;
+            margin: 0.5rem 0 0.3rem;
         }
         .suggestion-text { margin: 0; font-size: 0.92rem; color: var(--text); }
+        .suggestion-impact-line { margin: 0.6rem 0 0; }
 
         /* ---- Tables ---- */
         table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
@@ -277,6 +416,17 @@
         footer .footer-brand { font-weight: 700; color: var(--navy); margin: 0 0 0.35rem; }
         footer .footer-note { margin: 0; max-width: 80ch; }
         footer code { font-family: var(--font-mono); }
+
+        /* ---- Print / PDF ----
+           Zoom controls and the fullscreen modal are meaningless in print
+           (there's no JS execution in the PDF renderer), so hide them and
+           show the diagram at natural size with an explanatory note instead. */
+        @media print {
+            .toc, .diagram-toolbar, .diagram-expand-overlay, .diagram-backdrop { display: none !important; }
+            .print-only-note { display: block; }
+            .diagram-wrapper { position: static !important; max-height: none; overflow: visible; box-shadow: none; }
+            .diagram-zoom-target { transform: none !important; }
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
@@ -291,6 +441,15 @@
         </p>
         <span class="status-badge severity-{{ status.severity }}">{{ status.headline }}</span>
     </header>
+
+    <nav class="toc" aria-label="Navegação do relatório">
+        <a href="#summary">Resumo</a>
+        <a href="#metrics">Métricas</a>
+        <a href="#diagram">Diagrama</a>
+        <a href="#violations">Violações</a>
+        <a href="#cycles">Ciclos</a>
+        <a href="#suggestions">Sugestões</a>
+    </nav>
 
     <section id="summary">
         <h2>Resumo executivo</h2>
@@ -313,6 +472,12 @@
                 <div class="summary-value">{{ metrics_summary.cycle_count }}</div>
             </div>
         </div>
+        {% if hotspots %}
+        <p class="hotspot-line">
+            📊 Concentrados principalmente em:
+            {% for hotspot in hotspots %}<strong>{{ hotspot.module }}</strong> ({{ hotspot.count }}){{ ", " if not loop.last else "" }}{% endfor %}
+        </p>
+        {% endif %}
     </section>
 
     <section id="architecture-style">
@@ -380,11 +545,46 @@
         <h2>Diagrama de dependências</h2>
         <p class="section-intro">
             Este diagrama mostra as dependências entre pacotes do projeto. Ciclos e violações de
-            camada (detalhados abaixo) são as observações mais relevantes a procurar aqui.
+            camada (detalhados abaixo) são as observações mais relevantes a procurar aqui. Use os
+            controles de zoom ou clique para expandir em tela cheia — útil em projetos com muitos
+            pacotes.
         </p>
-        <div class="diagram-wrapper">
-            <pre class="mermaid">{{ mermaid_diagram }}</pre>
+        <p class="print-only-note">
+            Esta é a versão impressa/PDF: o diagrama abaixo aparece como texto-fonte Mermaid, não
+            como o grafo renderizado — abra o report.html para a versão interativa.
+        </p>
+
+        <!--
+            A single diagram instance, always visible in normal flow (never
+            display:none) - "expand" just toggles a CSS class that repositions
+            this same wrapper to fill the viewport (position: fixed). Mermaid
+            only ever renders this one <pre class="mermaid"> once, on page
+            load, while it's visible - rendering it a second time into a
+            hidden/duplicate container (the previous approach) produces a
+            zero-size, invisible SVG, which is why the expanded view used to
+            look empty.
+        -->
+        <div class="diagram-wrapper diagram-thumbnail" id="diagram-wrapper">
+            <div class="diagram-toolbar" data-diagram-toolbar data-initial-zoom="0.6">
+                <button type="button" class="diagram-btn" data-action="zoom-out" aria-label="Reduzir zoom">−</button>
+                <span class="diagram-zoom-label" data-zoom-label>60%</span>
+                <button type="button" class="diagram-btn" data-action="zoom-in" aria-label="Aumentar zoom">+</button>
+                <button type="button" class="diagram-btn" data-action="zoom-reset">Redefinir</button>
+                <button type="button" class="diagram-btn diagram-btn-expand" data-toggle-diagram>⤢ Expandir diagrama</button>
+            </div>
+            <div class="diagram-zoom-target" data-zoom-target>
+                <pre class="mermaid">{{ mermaid_diagram }}</pre>
+            </div>
+            <button type="button" class="diagram-expand-overlay" data-toggle-diagram>🔍 Clique para expandir</button>
         </div>
+        <div class="diagram-backdrop" data-diagram-backdrop></div>
+
+        {% if cycles %}
+        <div class="diagram-legend">
+            <span class="legend-item"><span class="legend-swatch cycle-edge"></span> Linhas vermelhas indicam dependências que fazem parte de um ciclo</span>
+            <span class="legend-item"><span class="legend-swatch"></span> Linhas cinzas são dependências normais, fora de qualquer ciclo</span>
+        </div>
+        {% endif %}
     </section>
 
     <section id="violations">
@@ -414,14 +614,16 @@
 
     <section id="cycles">
         <h2>Ciclos de dependência <span class="count-pill">{{ cycles | length }}</span></h2>
-        {% if cycles %}
+        {% if cycle_groups %}
         <p class="section-intro">
             Um ciclo de dependência significa que dois ou mais pacotes dependem uns dos outros,
             direta ou indiretamente — isso dificulta entender, testar e evoluir esses pacotes de
-            forma isolada.
+            forma isolada. Agrupados por módulo para facilitar a leitura em projetos com muitos ciclos.
         </p>
+        {% for group in cycle_groups %}
+        <h3>{{ group.label }}</h3>
         <div class="card-list">
-            {% for cycle in cycles %}
+            {% for cycle in group.cycles %}
             <div class="card cycle">
                 <span class="badge cycle">Ciclo de {{ cycle.length }} pacote{{ 's' if cycle.length != 1 else '' }}</span>
                 <div class="card-path">{{ cycle.path }}</div>
@@ -430,6 +632,7 @@
             </div>
             {% endfor %}
         </div>
+        {% endfor %}
         {% else %}
         <p class="empty-state">Nenhum ciclo de dependência detectado.</p>
         {% endif %}
@@ -439,17 +642,23 @@
         <h2>Sugestões de melhoria <span class="count-pill">{{ suggestions | length }}</span></h2>
         {% if suggestions %}
         <p class="section-intro">
-            Ações práticas para resolver cada violação e ciclo listados acima, em ordem de
-            aparição.
+            Ações práticas para resolver cada violação e ciclo, priorizadas pelo impacto
+            estimado — corrija primeiro as de maior prioridade.
         </p>
         <div class="card-list">
             {% for item in suggestions %}
             <div class="card suggestion">
-                <span class="badge {{ 'violation-skip' if item.kind == 'violation' else 'cycle' }}">
-                    {{ 'Violação de camada' if item.kind == 'violation' else 'Ciclo de dependência' }}
-                </span>
+                <div class="suggestion-header">
+                    <span class="badge {{ 'violation-skip' if item.kind == 'violation' else 'cycle' }}">
+                        {{ 'Violação de camada' if item.kind == 'violation' else 'Ciclo de dependência' }}
+                    </span>
+                    <span class="suggestion-priority">Prioridade #{{ loop.index }}</span>
+                </div>
                 <p class="suggestion-context">{{ item.context }}</p>
                 <p class="suggestion-text">{{ item.text }}</p>
+                {% if item.impact_label %}
+                <p class="suggestion-impact-line"><span class="suggestion-impact">Impacto: {{ item.impact_label }}</span></p>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -470,6 +679,73 @@
 </main>
 <script>
     mermaid.initialize({ startOnLoad: true, theme: "neutral" });
+
+    // Diagram zoom/pan (transform: scale() + native scroll) and the
+    // fullscreen "expand" toggle. Vanilla JS, no external library.
+    //
+    // Deliberately a single diagram instance, never duplicated into a
+    // separate (initially hidden) modal: Mermaid renders once, on page
+    // load, into whatever is in the DOM at that moment via
+    // `startOnLoad: true` above. An element that's display:none at that
+    // moment (e.g. a modal meant to be shown later) gets a broken/zero-size
+    // SVG - Mermaid computes layout against the container's live box, and a
+    // hidden container has none. "Expand" here just adds .is-fullscreen to
+    // this same wrapper (position: fixed, CSS only), so the already-correctly
+    // -rendered SVG is simply repositioned, never re-rendered.
+    (function () {
+        var wrapper = document.getElementById('diagram-wrapper');
+        if (!wrapper) return;
+
+        var toolbar = wrapper.querySelector('[data-diagram-toolbar]');
+        var target = wrapper.querySelector('[data-zoom-target]');
+        var backdrop = document.querySelector('[data-diagram-backdrop]');
+        var expandButtons = document.querySelectorAll('[data-toggle-diagram]');
+        var toolbarExpandBtn = wrapper.querySelector('.diagram-btn-expand');
+
+        if (toolbar && target) {
+            var initial = parseFloat(toolbar.getAttribute('data-initial-zoom')) || 1;
+            var zoom = initial;
+            var label = toolbar.querySelector('[data-zoom-label]');
+
+            var applyZoom = function () {
+                target.style.transform = 'scale(' + zoom + ')';
+                if (label) label.textContent = Math.round(zoom * 100) + '%';
+            };
+
+            toolbar.querySelectorAll('[data-action]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var action = btn.getAttribute('data-action');
+                    if (action === 'zoom-in') zoom = Math.min(zoom + 0.2, 3);
+                    else if (action === 'zoom-out') zoom = Math.max(zoom - 0.2, 0.2);
+                    else if (action === 'zoom-reset') zoom = initial;
+                    applyZoom();
+                });
+            });
+
+            applyZoom();
+        }
+
+        function setFullscreen(on) {
+            wrapper.classList.toggle('is-fullscreen', on);
+            if (backdrop) backdrop.classList.toggle('is-visible', on);
+            document.body.style.overflow = on ? 'hidden' : '';
+            if (toolbarExpandBtn) toolbarExpandBtn.textContent = on ? '✕ Fechar' : '⤢ Expandir diagrama';
+        }
+
+        expandButtons.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                setFullscreen(!wrapper.classList.contains('is-fullscreen'));
+            });
+        });
+        if (backdrop) {
+            backdrop.addEventListener('click', function () { setFullscreen(false); });
+        }
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && wrapper.classList.contains('is-fullscreen')) {
+                setFullscreen(false);
+            }
+        });
+    })();
 </script>
 </body>
 </html>

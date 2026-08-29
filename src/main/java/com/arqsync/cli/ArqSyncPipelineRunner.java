@@ -54,6 +54,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
     private final PersistenceService persistenceService;
     private final ReportExporter reportExporter;
     private final ProcessExiter processExiter;
+    private final PdfConfirmationPrompt pdfConfirmationPrompt;
 
     public ArqSyncPipelineRunner(
             GitRepositoryResolver gitRepositoryResolver,
@@ -61,7 +62,8 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
             DependencyAnalyzer dependencyAnalyzer,
             PersistenceService persistenceService,
             ReportExporter reportExporter,
-            ProcessExiter processExiter
+            ProcessExiter processExiter,
+            PdfConfirmationPrompt pdfConfirmationPrompt
     ) {
         this.gitRepositoryResolver = gitRepositoryResolver;
         this.scannerService = scannerService;
@@ -69,19 +71,22 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         this.persistenceService = persistenceService;
         this.reportExporter = reportExporter;
         this.processExiter = processExiter;
+        this.pdfConfirmationPrompt = pdfConfirmationPrompt;
     }
 
     @Override
     public void run(ApplicationArguments args) {
         List<String> nonOptionArgs = args.getNonOptionArgs();
         if (nonOptionArgs.isEmpty() || nonOptionArgs.get(0).isBlank()) {
-            log.error("Uso: java -jar arqsync.jar <caminho-do-projeto | URL-do-repositorio> [--keep]");
+            log.error("Uso: java -jar arqsync.jar <caminho-do-projeto | URL-do-repositorio> [--keep] [--pdf] [--json]");
             processExiter.exit(EXIT_FATAL_ERROR);
             return;
         }
 
         String argument = nonOptionArgs.get(0);
         boolean keep = args.containsOption("keep");
+        boolean generatePdf = args.containsOption("pdf");
+        boolean showJson = args.containsOption("json");
 
         ProjectScan projectScan;
         Path clonedDir = null;
@@ -109,7 +114,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
 
         Path outputDir;
         try {
-            outputDir = runAnalysisPersistenceAndExport(projectScan);
+            outputDir = runAnalysisPersistenceAndExport(projectScan, generatePdf);
         } finally {
             cleanupTempCloneDir(clonedDir, keep);
         }
@@ -118,7 +123,28 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         // null means a fatal error already happened (and was already reported)
         // in runAnalysisPersistenceAndExport, so there is nothing to print here.
         if (outputDir != null) {
-            printFinalOutcome(outputDir);
+            offerInteractivePdfGeneration(outputDir, generatePdf);
+            printFinalOutcome(outputDir, showJson);
+        }
+    }
+
+    /**
+     * If {@code --pdf} wasn't already passed, and report.html was actually
+     * generated (no point asking if the pipeline that would also produce the
+     * PDF already failed), asks the user whether to generate report.pdf now,
+     * reusing the same generation path {@code --pdf} would have used.
+     * {@link PdfConfirmationPrompt} itself is the guard against blocking a
+     * non-interactive run (see {@link ConsolePdfConfirmationPrompt}).
+     */
+    private void offerInteractivePdfGeneration(Path outputDir, boolean alreadyRequestedPdf) {
+        if (alreadyRequestedPdf) {
+            return;
+        }
+        if (!Files.exists(outputDir.resolve("report.html"))) {
+            return;
+        }
+        if (pdfConfirmationPrompt.confirmPdfGeneration()) {
+            reportExporter.generatePdfOnly(outputDir);
         }
     }
 
@@ -126,7 +152,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
      * Returns the report output directory on success, or {@code null} if a
      * fatal error occurred (already logged and reported to {@link #processExiter}).
      */
-    private Path runAnalysisPersistenceAndExport(ProjectScan projectScan) {
+    private Path runAnalysisPersistenceAndExport(ProjectScan projectScan, boolean generatePdf) {
         log.info("Analyzing dependencies...");
         AnalysisResult analysisResult;
         try {
@@ -146,7 +172,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
 
         log.info("Generating report...");
         try {
-            reportExporter.export(projectScan, analysisResult, outputDir);
+            reportExporter.export(projectScan, analysisResult, outputDir, generatePdf);
         } catch (Exception e) {
             log.error("Failed to generate report: {}", e.getMessage(), e);
             processExiter.exit(EXIT_FATAL_ERROR);
@@ -211,10 +237,19 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
      * characters or emoji, so it renders identically on every terminal/
      * codepage. Never opens a browser automatically; just points the user
      * at the file.
+     *
+     * <p>{@code report.json} is an internal artifact (used by the HTML/PDF
+     * generation step, not meant as the primary deliverable) - it's only
+     * mentioned here when {@code showJson} is true ({@code --json}). The PDF
+     * line only appears if {@code report.pdf} actually exists - PDF
+     * generation is opt-in ({@code --pdf}) and can itself fail gracefully
+     * (e.g. the optional PDF library isn't installed), in which case there's
+     * nothing to point at.
      */
-    private void printFinalOutcome(Path outputDir) {
+    private void printFinalOutcome(Path outputDir, boolean showJson) {
         Path htmlPath = outputDir.resolve("report.html");
         Path jsonPath = outputDir.resolve("report.json").toAbsolutePath().normalize();
+        Path pdfPath = outputDir.resolve("report.pdf");
 
         System.out.println();
         System.out.println(SEPARATOR);
@@ -222,12 +257,16 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
             Path absoluteHtmlPath = htmlPath.toAbsolutePath().normalize();
             System.out.println("Report generated successfully!");
             System.out.println("Open the file: " + absoluteHtmlPath);
-            System.out.println("-".repeat(60));
-            System.out.println("JSON also available at: " + jsonPath);
         } else {
             System.out.println("report.html was not generated (see warnings above for why).");
+        }
+        if (Files.exists(pdfPath)) {
             System.out.println("-".repeat(60));
-            System.out.println("JSON available at: " + jsonPath);
+            System.out.println("PDF also available at: " + pdfPath.toAbsolutePath().normalize());
+        }
+        if (showJson) {
+            System.out.println("-".repeat(60));
+            System.out.println("JSON also available at: " + jsonPath);
         }
         System.out.println(SEPARATOR);
     }

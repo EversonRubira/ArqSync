@@ -25,7 +25,7 @@ public class DefaultReportExporter implements ReportExporter {
     }
 
     @Override
-    public void export(ProjectScan projectScan, AnalysisResult analysisResult, Path outputDir) {
+    public void export(ProjectScan projectScan, AnalysisResult analysisResult, Path outputDir, boolean generatePdf) {
         try {
             Files.createDirectories(outputDir);
         } catch (IOException e) {
@@ -34,9 +34,15 @@ public class DefaultReportExporter implements ReportExporter {
 
         Path jsonPath = jsonExporter.export(projectScan, analysisResult, outputDir);
 
-        boolean htmlGenerated = htmlReportGenerator.generate(jsonPath, outputDir);
+        boolean htmlGenerated = htmlReportGenerator.generate(jsonPath, outputDir, generatePdf);
         if (!htmlGenerated) {
             log.warn("report.html was not generated; report.json is available at {}", jsonPath);
         }
+    }
+
+    @Override
+    public void generatePdfOnly(Path outputDir) {
+        Path jsonPath = outputDir.resolve("report.json");
+        htmlReportGenerator.generate(jsonPath, outputDir, true);
     }
 }

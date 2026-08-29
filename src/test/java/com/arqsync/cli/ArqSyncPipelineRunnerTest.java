@@ -32,6 +32,7 @@ import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -49,11 +50,13 @@ class ArqSyncPipelineRunnerTest {
     private final PersistenceService persistenceService = mock(PersistenceService.class);
     private final ReportExporter reportExporter = mock(ReportExporter.class);
     private final ProcessExiter processExiter = mock(ProcessExiter.class);
+    private final PdfConfirmationPrompt pdfConfirmationPrompt = mock(PdfConfirmationPrompt.class);
 
     private final GitRepositoryResolver gitRepositoryResolver = new GitRepositoryResolver();
 
     private final ArqSyncPipelineRunner runner = new ArqSyncPipelineRunner(
-            gitRepositoryResolver, scannerService, dependencyAnalyzer, persistenceService, reportExporter, processExiter
+            gitRepositoryResolver, scannerService, dependencyAnalyzer, persistenceService, reportExporter,
+            processExiter, pdfConfirmationPrompt
     );
 
     private Path createdOutputDir;
@@ -114,14 +117,14 @@ class ArqSyncPipelineRunnerTest {
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             return null;
-        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any());
+        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any(), anyBoolean());
 
         runner.run(argsWith("/repo/my-project"));
 
         verify(scannerService).scan(Paths.get("/repo/my-project"));
         verify(dependencyAnalyzer).analyze(projectScan);
         verify(persistenceService).save(projectScan, analysisResult);
-        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any());
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), anyBoolean());
         verify(processExiter, never()).exit(anyInt());
         assertThat(createdOutputDir.resolve("report.json")).exists();
     }
@@ -157,12 +160,12 @@ class ArqSyncPipelineRunnerTest {
         doAnswer(invocation -> {
             createdOutputDir = invocation.getArgument(2);
             return null;
-        }).when(reportExporter).export(any(), any(), any());
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
 
         runner.run(argsWith("/repo/my-project"));
 
         verify(persistenceService).save(projectScan, analysisResult);
-        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any());
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), anyBoolean());
         verify(processExiter, never()).exit(anyInt());
     }
 
@@ -179,7 +182,7 @@ class ArqSyncPipelineRunnerTest {
             Files.writeString(outputDir.resolve("report.json"), "{}");
             // no report.html written - simulates Python being unavailable
             return null;
-        }).when(reportExporter).export(any(), any(), any());
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
 
         runner.run(argsWith("/repo/my-project"));
 
@@ -196,7 +199,7 @@ class ArqSyncPipelineRunnerTest {
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
             throw new RuntimeException("could not write report.json");
-        }).when(reportExporter).export(any(), any(), any());
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
 
         runner.run(argsWith("/repo/my-project"));
 
@@ -230,7 +233,8 @@ class ArqSyncPipelineRunnerTest {
                 new DefaultArchitectureStyleDetector()
         );
         ArqSyncPipelineRunner realishRunner = new ArqSyncPipelineRunner(
-                gitRepositoryResolver, realScanner, realAnalyzer, persistenceService, reportExporter, processExiter
+                gitRepositoryResolver, realScanner, realAnalyzer, persistenceService, reportExporter,
+                processExiter, pdfConfirmationPrompt
         );
         Path fixture = Paths.get(Objects.requireNonNull(
                 getClass().getClassLoader().getResource("fixtures/scanner/valid-project")
@@ -243,12 +247,12 @@ class ArqSyncPipelineRunnerTest {
             Files.writeString(outputDir.resolve("report.json"), "{}");
             Files.writeString(outputDir.resolve("report.html"), "<html></html>");
             return null;
-        }).when(reportExporter).export(any(), any(), any());
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
 
         realishRunner.run(argsWith(fixture.toString()));
 
         verify(persistenceService).save(any(), any());
-        verify(reportExporter).export(any(), any(), any());
+        verify(reportExporter).export(any(), any(), any(), anyBoolean());
         verify(processExiter, never()).exit(anyInt());
         assertThat(createdOutputDir.resolve("report.html")).exists();
     }
@@ -264,7 +268,8 @@ class ArqSyncPipelineRunnerTest {
 
     private ArqSyncPipelineRunner runnerWithMockedGitResolver(GitRepositoryResolver mockResolver) {
         return new ArqSyncPipelineRunner(
-                mockResolver, scannerService, dependencyAnalyzer, persistenceService, reportExporter, processExiter
+                mockResolver, scannerService, dependencyAnalyzer, persistenceService, reportExporter,
+                processExiter, pdfConfirmationPrompt
         );
     }
 
@@ -284,7 +289,7 @@ class ArqSyncPipelineRunnerTest {
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             return null;
-        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any());
+        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any(), anyBoolean());
 
         urlRunner.run(argsWith(GIT_URL, false));
 
@@ -326,7 +331,7 @@ class ArqSyncPipelineRunnerTest {
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             return null;
-        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any());
+        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any(), anyBoolean());
 
         urlRunner.run(argsWith(GIT_URL, true));
 
@@ -361,5 +366,216 @@ class ArqSyncPipelineRunnerTest {
 
         verify(processExiter).exit(1);
         verifyNoInteractions(scannerService, dependencyAnalyzer, persistenceService, reportExporter);
+    }
+
+    private ApplicationArguments argsWithPdfAndJson(String nonOptionArg, boolean pdf, boolean json) {
+        ApplicationArguments args = mock(ApplicationArguments.class);
+        when(args.getNonOptionArgs()).thenReturn(List.of(nonOptionArg));
+        when(args.containsOption("pdf")).thenReturn(pdf);
+        when(args.containsOption("json")).thenReturn(json);
+        return args;
+    }
+
+    @Test
+    void pdfFlagIsPassedThroughToTheReportExporter() {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            createdOutputDir = invocation.getArgument(2);
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+
+        runner.run(argsWithPdfAndJson("/repo/my-project", true, false));
+
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), eq(true));
+    }
+
+    @Test
+    void pdfFlagAbsentByDefault() {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            createdOutputDir = invocation.getArgument(2);
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+
+        runner.run(argsWith("/repo/my-project"));
+
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), eq(false));
+    }
+
+    @Test
+    void jsonPathIsOnlyPrintedInFinalMessageWhenJsonFlagIsPassed() throws IOException {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            Path outputDir = invocation.getArgument(2);
+            createdOutputDir = outputDir;
+            Files.createDirectories(outputDir);
+            Files.writeString(outputDir.resolve("report.json"), "{}");
+            Files.writeString(outputDir.resolve("report.html"), "<html></html>");
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+
+        String withoutJsonFlag = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", false, false)));
+        String withJsonFlag = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", false, true)));
+
+        assertThat(withoutJsonFlag).doesNotContain("JSON also available at");
+        assertThat(withJsonFlag).contains("JSON also available at");
+    }
+
+    @Test
+    void pdfPathIsPrintedRightBelowTheHtmlPathWhenReportPdfWasActuallyGenerated() throws IOException {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            Path outputDir = invocation.getArgument(2);
+            createdOutputDir = outputDir;
+            Files.createDirectories(outputDir);
+            Files.writeString(outputDir.resolve("report.json"), "{}");
+            Files.writeString(outputDir.resolve("report.html"), "<html></html>");
+            Files.writeString(outputDir.resolve("report.pdf"), "%PDF-1.4");
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+
+        String output = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", true, false)));
+
+        assertThat(output).contains("PDF also available at");
+        // "right below the HTML path": the PDF line must come after the HTML
+        // line and before anything else (no JSON line here, --json wasn't passed).
+        int htmlLineIndex = output.indexOf("Open the file:");
+        int pdfLineIndex = output.indexOf("PDF also available at");
+        assertThat(htmlLineIndex).isPositive();
+        assertThat(pdfLineIndex).isGreaterThan(htmlLineIndex);
+    }
+
+    @Test
+    void pdfPathIsNotPrintedWhenReportPdfWasNotGenerated() throws IOException {
+        // e.g. --pdf was passed but the optional PDF library isn't installed -
+        // generate-report.py already logs why (DefaultHtmlReportGenerator);
+        // the final message just shouldn't dangle a link to a file that
+        // doesn't exist.
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            Path outputDir = invocation.getArgument(2);
+            createdOutputDir = outputDir;
+            Files.createDirectories(outputDir);
+            Files.writeString(outputDir.resolve("report.json"), "{}");
+            Files.writeString(outputDir.resolve("report.html"), "<html></html>");
+            // no report.pdf written - simulates the optional PDF library being unavailable
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+
+        String output = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", true, false)));
+
+        assertThat(output).doesNotContain("PDF also available at");
+    }
+
+    @Test
+    void interactivePromptIsSkippedWhenPdfFlagAlreadyPassed() {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            Path outputDir = invocation.getArgument(2);
+            createdOutputDir = outputDir;
+            Files.createDirectories(outputDir);
+            Files.writeString(outputDir.resolve("report.html"), "<html></html>");
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+
+        runner.run(argsWithPdfAndJson("/repo/my-project", true, false));
+
+        verifyNoInteractions(pdfConfirmationPrompt);
+        verify(reportExporter, never()).generatePdfOnly(any());
+    }
+
+    @Test
+    void interactivePromptIsSkippedWhenHtmlWasNotGenerated() {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            Path outputDir = invocation.getArgument(2);
+            createdOutputDir = outputDir;
+            Files.createDirectories(outputDir);
+            // no report.html written - simulates Python being unavailable
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+
+        runner.run(argsWithPdfAndJson("/repo/my-project", false, false));
+
+        verifyNoInteractions(pdfConfirmationPrompt);
+    }
+
+    @Test
+    void interactivePromptConfirmedTriggersPdfGenerationAndItsPathIsPrinted() throws IOException {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            Path outputDir = invocation.getArgument(2);
+            createdOutputDir = outputDir;
+            Files.createDirectories(outputDir);
+            Files.writeString(outputDir.resolve("report.html"), "<html></html>");
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        when(pdfConfirmationPrompt.confirmPdfGeneration()).thenReturn(true);
+        doAnswer(invocation -> {
+            Path outputDir = invocation.getArgument(0);
+            Files.writeString(outputDir.resolve("report.pdf"), "%PDF-1.4");
+            return null;
+        }).when(reportExporter).generatePdfOnly(any());
+
+        String output = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", false, false)));
+
+        verify(reportExporter).generatePdfOnly(createdOutputDir);
+        assertThat(output).contains("PDF also available at");
+    }
+
+    @Test
+    void interactivePromptDeclinedDoesNotGeneratePdf() {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            Path outputDir = invocation.getArgument(2);
+            createdOutputDir = outputDir;
+            Files.createDirectories(outputDir);
+            Files.writeString(outputDir.resolve("report.html"), "<html></html>");
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        when(pdfConfirmationPrompt.confirmPdfGeneration()).thenReturn(false);
+
+        runner.run(argsWithPdfAndJson("/repo/my-project", false, false));
+
+        verify(reportExporter, never()).generatePdfOnly(any());
+    }
+
+    private String captureStdout(Runnable action) {
+        java.io.PrintStream originalOut = System.out;
+        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+        System.setOut(new java.io.PrintStream(buffer, true, java.nio.charset.StandardCharsets.UTF_8));
+        try {
+            action.run();
+        } finally {
+            System.setOut(originalOut);
+        }
+        return buffer.toString(java.nio.charset.StandardCharsets.UTF_8);
     }
 }

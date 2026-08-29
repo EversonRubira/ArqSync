@@ -56,7 +56,7 @@ class DefaultReportExporterTest {
                 new DefaultHtmlReportGenerator(realScriptPath(), DefaultHtmlReportGenerator.DEFAULT_PYTHON_COMMANDS);
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
-        exporter.export(projectScan(), emptyAnalysisResult(), outputDir);
+        exporter.export(projectScan(), emptyAnalysisResult(), outputDir, false);
 
         assertThat(outputDir.resolve("report.json")).exists();
         assertThat(outputDir.resolve("report.html")).exists();
@@ -68,7 +68,7 @@ class DefaultReportExporterTest {
                 new DefaultHtmlReportGenerator(realScriptPath(), List.of("no-such-python-interpreter"));
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
-        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), outputDir))
+        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), outputDir, false))
                 .doesNotThrowAnyException();
 
         assertThat(outputDir.resolve("report.json")).exists();
@@ -82,7 +82,7 @@ class DefaultReportExporterTest {
                 new DefaultHtmlReportGenerator(fixtureScript("always-fails.py"), DefaultHtmlReportGenerator.DEFAULT_PYTHON_COMMANDS);
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
-        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), outputDir))
+        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), outputDir, false))
                 .doesNotThrowAnyException();
 
         assertThat(outputDir.resolve("report.json")).exists();
@@ -96,9 +96,49 @@ class DefaultReportExporterTest {
                 new DefaultHtmlReportGenerator(realScriptPath(), List.of("no-such-python-interpreter"));
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
-        exporter.export(projectScan(), emptyAnalysisResult(), outputDir);
+        exporter.export(projectScan(), emptyAnalysisResult(), outputDir, false);
 
         assertThat(Files.isDirectory(outputDir)).isTrue();
         assertThat(outputDir.resolve("report.json")).exists();
+    }
+
+    @Test
+    void generatePdfRequestedStillProducesHtmlAndNeverThrowsEvenIfThePdfLibraryIsMissing(@TempDir Path outputDir)
+            throws URISyntaxException {
+        // PDF generation is opt-in and best-effort (SPEC-exporter.md-style graceful
+        // degradation, same as "Python not found" for report.html): whether or not
+        // the optional PDF library is installed in this environment, report.html
+        // must still be produced and export() must never throw.
+        HtmlReportGenerator htmlReportGenerator =
+                new DefaultHtmlReportGenerator(realScriptPath(), DefaultHtmlReportGenerator.DEFAULT_PYTHON_COMMANDS);
+        ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
+
+        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), outputDir, true))
+                .doesNotThrowAnyException();
+
+        assertThat(outputDir.resolve("report.json")).exists();
+        assertThat(outputDir.resolve("report.html")).exists();
+    }
+
+    @Test
+    void generatePdfOnlyReusesTheExistingReportJsonWithoutRedoingTheExport(@TempDir Path outputDir)
+            throws URISyntaxException {
+        // Simulates the interactive "Generate PDF report? (y/N)" follow-up:
+        // export() already ran (without --pdf) in an earlier step, and now
+        // only the PDF needs to be produced from the report.json already on disk.
+        HtmlReportGenerator htmlReportGenerator =
+                new DefaultHtmlReportGenerator(realScriptPath(), DefaultHtmlReportGenerator.DEFAULT_PYTHON_COMMANDS);
+        ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
+        exporter.export(projectScan(), emptyAnalysisResult(), outputDir, false);
+        assertThat(outputDir.resolve("report.html")).exists();
+
+        assertThatCode(() -> exporter.generatePdfOnly(outputDir)).doesNotThrowAnyException();
+
+        // report.pdf itself depends on the optional PDF library being usable
+        // in this environment (best-effort, same as elsewhere in this class) -
+        // what must always hold is that this call never throws and doesn't
+        // disturb the artifacts already on disk.
+        assertThat(outputDir.resolve("report.json")).exists();
+        assertThat(outputDir.resolve("report.html")).exists();
     }
 }
