@@ -105,6 +105,60 @@ def build_dependency_counts_view(metrics: dict) -> list:
     ]
 
 
+def build_metrics_summary_view(metrics: dict, dependency_graph: dict) -> dict:
+    """The 5 headline numbers (Métricas table): packages, classes, internal
+    dependencies (edge count - a direct structural count, not a new metric),
+    cycles, violations."""
+    return {
+        "total_packages": metrics.get("totalPackages", 0),
+        "total_classes": metrics.get("totalClasses", 0),
+        "total_dependencies": len(dependency_graph.get("edges", [])),
+        "cycle_count": metrics.get("cycleCount", 0),
+        "violation_count": metrics.get("violationCount", 0),
+    }
+
+
+def _plural(count: int, singular: str, plural: str) -> str:
+    return singular if count == 1 else plural
+
+
+def build_status_view(metrics: dict) -> dict:
+    """The header's one-line status summary (e.g. "2 violações críticas") and
+    its severity, derived directly from the already-computed cycle/violation
+    counts - just phrasing them as a sentence, not a new judgment."""
+    violation_count = metrics.get("violationCount", 0)
+    cycle_count = metrics.get("cycleCount", 0)
+
+    violation_phrase = f"{violation_count} " + _plural(
+        violation_count, "violação crítica", "violações críticas"
+    )
+    cycle_phrase = f"{cycle_count} " + _plural(
+        cycle_count, "ciclo de dependência", "ciclos de dependência"
+    )
+
+    if violation_count and cycle_count:
+        return {"headline": f"{violation_phrase} e {cycle_phrase}", "severity": "critical"}
+    if violation_count:
+        return {"headline": violation_phrase, "severity": "critical"}
+    if cycle_count:
+        return {"headline": cycle_phrase, "severity": "warning"}
+    return {"headline": "Nenhum problema estrutural detectado", "severity": "ok"}
+
+
+def build_suggestions_view(violations_view: list, cycles_view: list) -> list:
+    """Consolidates each violation's and cycle's suggestion (already computed
+    by the Analyzer) into one actionable list - re-presented, not reinterpreted."""
+    suggestions = [
+        {"kind": "violation", "context": f"{v['from']} → {v['to']}", "text": v["suggestion"]}
+        for v in violations_view
+    ]
+    suggestions += [
+        {"kind": "cycle", "context": c["path"], "text": c["suggestion"]}
+        for c in cycles_view
+    ]
+    return suggestions
+
+
 def format_generated_at(raw: str) -> str:
     # Purely cosmetic: drop sub-second precision and the ISO 'T' separator.
     # Same instant, just easier to read - not a reinterpretation of the data.
@@ -121,16 +175,21 @@ def render_html(report_data: dict) -> str:
     template = env.get_template("report.html.j2")
 
     metrics = report_data.get("metrics", {})
+    dependency_graph = report_data.get("dependencyGraph", {})
+    cycles_view = build_cycles_view(report_data.get("cycles", []))
+    violations_view = build_violations_view(report_data.get("violations", []))
 
     return template.render(
         project_name=report_data.get("projectName", ""),
         root_path=report_data.get("rootPath", ""),
         generated_at=format_generated_at(report_data.get("generatedAt", "")),
-        metrics=metrics,
+        status=build_status_view(metrics),
+        metrics_summary=build_metrics_summary_view(metrics, dependency_graph),
         dependency_counts=build_dependency_counts_view(metrics),
-        cycles=build_cycles_view(report_data.get("cycles", [])),
-        violations=build_violations_view(report_data.get("violations", [])),
-        mermaid_diagram=build_mermaid_diagram(report_data.get("dependencyGraph", {})),
+        cycles=cycles_view,
+        violations=violations_view,
+        suggestions=build_suggestions_view(violations_view, cycles_view),
+        mermaid_diagram=build_mermaid_diagram(dependency_graph),
         architecture_style=build_architecture_style_view(report_data.get("architectureStyle", {})),
     )
 

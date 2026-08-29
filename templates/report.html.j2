@@ -5,36 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ArqSync — {{ project_name }}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
         :root {
             color-scheme: light;
-            --font-sans: "Inter", "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
+            --font-sans: "Inter", "Roboto", "Segoe UI", -apple-system, Helvetica, Arial, sans-serif;
             --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-            --bg: #f7f8fa;
+            /* neutrals */
+            --bg: #f5f6f8;
             --surface: #ffffff;
-            --surface-alt: #f3f4f7;
-            --text: #1a1d23;
+            --surface-alt: #f0f2f5;
+            --text: #1b2030;
             --text-muted: #5c6472;
-            --border: #e2e5ea;
+            --border: #e1e4ea;
 
-            --accent: #2f5fef;
-            --accent-bg: #eef2ff;
-            --accent-dark: #1e3fb8;
+            /* dark blue - brand / informational cards */
+            --navy: #16233f;
+            --accent: #1d4ed8;
+            --accent-bg: #eaf0fe;
+            --accent-border: #c7d7fb;
 
-            /* category colors: violation (danger), cycle (warning), normal (success) */
-            --danger: #d1293d;
-            --danger-bg: #fdecee;
-            --danger-border: #f6c4cb;
+            /* alerts only: red for violations, orange for cycles */
+            --danger: #c11d3a;
+            --danger-bg: #fcecef;
+            --danger-border: #f4c2cd;
 
-            --warn: #b7791f;
-            --warn-bg: #fdf3df;
-            --warn-border: #f0d795;
+            --cycle: #c2410c;
+            --cycle-bg: #fdf1e6;
+            --cycle-border: #f6cda3;
 
-            --success: #1a8a5f;
-            --success-bg: #e8f7f0;
-            --success-border: #b7e6cf;
+            /* healthy / no-problem state */
+            --success: #157a4d;
+            --success-bg: #e8f6ef;
+            --success-border: #b8e3cb;
 
             --radius: 10px;
             --shadow: 0 1px 2px rgba(20, 24, 33, 0.04), 0 6px 20px rgba(20, 24, 33, 0.05);
@@ -50,11 +54,10 @@
             line-height: 1.55;
             -webkit-font-smoothing: antialiased;
         }
-        main { max-width: 980px; margin: 0 auto; }
+        main { max-width: 1000px; margin: 0 auto; }
 
-        header.hero {
-            margin-bottom: 1.5rem;
-        }
+        /* ---- Header ---- */
+        header.hero { margin-bottom: 1.75rem; }
         .eyebrow {
             display: inline-block;
             font-size: 0.72rem;
@@ -65,16 +68,17 @@
             background: var(--accent-bg);
             padding: 0.2rem 0.6rem;
             border-radius: 999px;
-            margin-bottom: 0.6rem;
+            margin-bottom: 0.7rem;
         }
         h1 {
             margin: 0 0 0.35rem;
             font-size: 1.85rem;
             font-weight: 800;
             letter-spacing: -0.01em;
+            color: var(--navy);
         }
         h1 .project-name { color: var(--accent); }
-        .subtitle { color: var(--text-muted); font-size: 0.92rem; margin: 0; }
+        .subtitle { color: var(--text-muted); font-size: 0.92rem; margin: 0 0 0.9rem; }
         .subtitle code {
             background: var(--surface-alt);
             border: 1px solid var(--border);
@@ -83,15 +87,38 @@
             font-family: var(--font-mono);
             font-size: 0.85rem;
         }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 0.35rem 0.85rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+        }
+        .status-badge.severity-critical { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-border); }
+        .status-badge.severity-warning { background: var(--cycle-bg); color: var(--cycle); border-color: var(--cycle-border); }
+        .status-badge.severity-ok { background: var(--success-bg); color: var(--success); border-color: var(--success-border); }
 
-        section { margin-bottom: 2rem; }
+        /* ---- Sections, generic ---- */
+        section { margin-bottom: 2.25rem; }
         h2 {
             font-size: 1.05rem;
             font-weight: 700;
             margin: 0 0 0.9rem;
+            color: var(--navy);
             display: flex;
             align-items: center;
             gap: 0.5rem;
+        }
+        h3 {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin: 1.5rem 0 0.75rem;
         }
         .count-pill {
             font-size: 0.75rem;
@@ -113,25 +140,46 @@
             font-weight: 500;
         }
 
-        /* Architecture style card */
-        .style-card {
-            background: linear-gradient(135deg, var(--accent-bg), var(--surface));
+        /* ---- Executive summary (only place icons appear) ---- */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 0.85rem;
+        }
+        .summary-card {
+            background: var(--surface);
             border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
             border-radius: var(--radius);
-            padding: 1.4rem 1.6rem;
+            padding: 0.95rem 1.1rem;
             box-shadow: var(--shadow);
         }
-        .style-card h2 {
-            font-size: 1.3rem;
-            margin-bottom: 0.5rem;
-        }
-        .style-card p {
-            margin: 0;
+        .summary-card.tone-danger { border-left-color: var(--danger); }
+        .summary-card.tone-cycle { border-left-color: var(--cycle); }
+        .summary-card.tone-good { border-left-color: var(--success); }
+        .summary-card .summary-icon { font-size: 1.1rem; margin-right: 0.4rem; }
+        .summary-card .summary-label {
+            font-size: 0.75rem;
+            font-weight: 600;
             color: var(--text-muted);
-            max-width: 68ch;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
+        .summary-card .summary-value { font-size: 1.15rem; font-weight: 700; margin-top: 0.3rem; color: var(--text); }
+        .summary-card .summary-detail { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem; }
 
-        /* Diagram */
+        /* ---- Architecture style card (informational -> blue) ---- */
+        .style-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 1.1rem 1.3rem;
+            box-shadow: var(--shadow);
+        }
+        .style-card p { margin: 0; color: var(--text-muted); max-width: 70ch; font-size: 0.92rem; }
+
+        /* ---- Diagram ---- */
         .diagram-wrapper {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -141,7 +189,7 @@
             box-shadow: var(--shadow);
         }
 
-        /* Cards (cycles / violations) */
+        /* ---- Cards: violations / cycles / suggestions ---- */
         .card-list { display: flex; flex-direction: column; gap: 0.85rem; }
         .card {
             background: var(--surface);
@@ -151,8 +199,9 @@
             padding: 1rem 1.15rem;
             box-shadow: var(--shadow);
         }
-        .card.cycle { border-left-color: var(--warn); }
+        .card.cycle { border-left-color: var(--cycle); }
         .card.violation { border-left-color: var(--danger); }
+        .card.suggestion { border-left-color: var(--accent); }
 
         .card-path {
             font-family: var(--font-mono);
@@ -168,25 +217,30 @@
             padding: 0.15rem 0.55rem;
             border-radius: 999px;
         }
-        .badge.cycle { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+        .badge.cycle { background: var(--cycle-bg); color: var(--cycle); border: 1px solid var(--cycle-border); }
         .badge.violation-skip { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
         .badge.violation-inversion { background: #f1e9fd; color: #7233c7; border: 1px solid #ddc4f7; }
 
         .card-explanation { margin: 0 0 0.6rem; color: var(--text); font-size: 0.92rem; }
         .card-suggestion {
-            display: flex;
-            gap: 0.55rem;
-            align-items: flex-start;
             background: var(--surface-alt);
-            border: 1px dashed var(--border);
             border-radius: 8px;
             padding: 0.6rem 0.75rem;
             font-size: 0.88rem;
             color: var(--text-muted);
         }
-        .card-suggestion .suggestion-icon { flex: none; line-height: 1.3; }
-        .card-suggestion strong { color: var(--text); font-weight: 600; }
+        .card-suggestion .suggestion-label { color: var(--text); font-weight: 600; }
 
+        /* ---- Suggestions section ---- */
+        .suggestion-context {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin: 0 0 0.3rem;
+        }
+        .suggestion-text { margin: 0; font-size: 0.92rem; color: var(--text); }
+
+        /* ---- Tables ---- */
         table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
         thead th {
             text-align: left;
@@ -209,29 +263,9 @@
             overflow: hidden;
             box-shadow: var(--shadow);
         }
-
-        .metrics-summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 0.85rem;
-            margin-bottom: 1.3rem;
-        }
-        .metric-tile {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 0.95rem 1.1rem;
-            box-shadow: var(--shadow);
-        }
-        .metric-tile .value { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
-        .metric-tile .label { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.3rem; font-weight: 500; }
-        .metric-tile.tone-neutral .value { color: var(--text); }
-        .metric-tile.tone-good { background: var(--success-bg); border-color: var(--success-border); }
-        .metric-tile.tone-good .value { color: var(--success); }
-        .metric-tile.tone-warn { background: var(--warn-bg); border-color: var(--warn-border); }
-        .metric-tile.tone-warn .value { color: var(--warn); }
-        .metric-tile.tone-danger { background: var(--danger-bg); border-color: var(--danger-border); }
-        .metric-tile.tone-danger .value { color: var(--danger); }
+        .metrics-table td.metric-value { font-weight: 700; text-align: right; width: 6rem; }
+        .metrics-table tr.row-danger td.metric-value { color: var(--danger); }
+        .metrics-table tr.row-cycle td.metric-value { color: var(--cycle); }
 
         footer {
             color: var(--text-muted);
@@ -240,6 +274,8 @@
             padding-top: 1.25rem;
             border-top: 1px solid var(--border);
         }
+        footer .footer-brand { font-weight: 700; color: var(--navy); margin: 0 0 0.35rem; }
+        footer .footer-note { margin: 0; max-width: 80ch; }
         footer code { font-family: var(--font-mono); }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
@@ -253,35 +289,70 @@
             <code>{{ root_path }}</code><br>
             Gerado em {{ generated_at }}
         </p>
+        <span class="status-badge severity-{{ status.severity }}">{{ status.headline }}</span>
     </header>
 
-    <section id="architecture-style" class="style-card">
+    <section id="summary">
+        <h2>Resumo executivo</h2>
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-label">📊 Arquitetura detectada</div>
+                <div class="summary-value">{{ architecture_style.name }}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">📊 Tamanho do projeto</div>
+                <div class="summary-value">{{ metrics_summary.total_classes }} classes</div>
+                <div class="summary-detail">em {{ metrics_summary.total_packages }} pacotes</div>
+            </div>
+            <div class="summary-card {{ 'tone-danger' if metrics_summary.violation_count else 'tone-good' }}">
+                <div class="summary-label">{{ '🔴' if metrics_summary.violation_count else '✅' }} Violações de camada</div>
+                <div class="summary-value">{{ metrics_summary.violation_count }}</div>
+            </div>
+            <div class="summary-card {{ 'tone-cycle' if metrics_summary.cycle_count else 'tone-good' }}">
+                <div class="summary-label">{{ '🟠' if metrics_summary.cycle_count else '✅' }} Ciclos de dependência</div>
+                <div class="summary-value">{{ metrics_summary.cycle_count }}</div>
+            </div>
+        </div>
+    </section>
+
+    <section id="architecture-style">
         <h2>Arquitetura detectada: {{ architecture_style.name }}</h2>
-        <p>{{ architecture_style.description }}</p>
+        <div class="style-card">
+            <p>{{ architecture_style.description }}</p>
+        </div>
     </section>
 
     <section id="metrics">
         <h2>Métricas</h2>
-        <div class="metrics-summary">
-            <div class="metric-tile tone-neutral">
-                <div class="value">{{ metrics.totalPackages }}</div>
-                <div class="label">Pacotes</div>
-            </div>
-            <div class="metric-tile tone-neutral">
-                <div class="value">{{ metrics.totalClasses }}</div>
-                <div class="label">Classes</div>
-            </div>
-            <div class="metric-tile {{ 'tone-warn' if metrics.cycleCount else 'tone-good' }}">
-                <div class="value">{{ metrics.cycleCount }}</div>
-                <div class="label">Ciclos</div>
-            </div>
-            <div class="metric-tile {{ 'tone-danger' if metrics.violationCount else 'tone-good' }}">
-                <div class="value">{{ metrics.violationCount }}</div>
-                <div class="label">Violações</div>
-            </div>
+        <div class="table-wrapper">
+            <table class="metrics-table">
+                <tbody>
+                    <tr>
+                        <td>Pacotes analisados</td>
+                        <td class="metric-value">{{ metrics_summary.total_packages }}</td>
+                    </tr>
+                    <tr>
+                        <td>Classes analisadas</td>
+                        <td class="metric-value">{{ metrics_summary.total_classes }}</td>
+                    </tr>
+                    <tr>
+                        <td>Dependências internas entre pacotes</td>
+                        <td class="metric-value">{{ metrics_summary.total_dependencies }}</td>
+                    </tr>
+                    <tr class="{{ 'row-cycle' if metrics_summary.cycle_count }}">
+                        <td>Ciclos de dependência detectados</td>
+                        <td class="metric-value">{{ metrics_summary.cycle_count }}</td>
+                    </tr>
+                    <tr class="{{ 'row-danger' if metrics_summary.violation_count }}">
+                        <td>Violações de camada detectadas</td>
+                        <td class="metric-value">{{ metrics_summary.violation_count }}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         {% if dependency_counts %}
+        <h3>Dependências por pacote</h3>
         <div class="table-wrapper">
             <table>
                 <thead>
@@ -302,8 +373,6 @@
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <p class="empty-state">Nenhum pacote com dependências para listar.</p>
         {% endif %}
     </section>
 
@@ -316,6 +385,31 @@
         <div class="diagram-wrapper">
             <pre class="mermaid">{{ mermaid_diagram }}</pre>
         </div>
+    </section>
+
+    <section id="violations">
+        <h2>Violações de camada <span class="count-pill">{{ violations | length }}</span></h2>
+        {% if violations %}
+        <p class="section-intro">
+            Uma violação de camada acontece quando um pacote depende de outro fora da ordem
+            esperada (<code>controller → service → repository → domain</code>) — pulando uma
+            camada intermediária, ou invertendo o sentido da dependência.
+        </p>
+        <div class="card-list">
+            {% for violation in violations %}
+            <div class="card violation">
+                <span class="badge {{ 'violation-skip' if violation.type == 'LAYER_SKIP' else 'violation-inversion' }}">
+                    {{ 'Camada pulada' if violation.type == 'LAYER_SKIP' else 'Inversão de camada' }}
+                </span>
+                <div class="card-path">{{ violation.from }} ({{ violation.from_layer | lower }}) → {{ violation.to }} ({{ violation.to_layer | lower }})</div>
+                <p class="card-explanation">{{ violation.explanation }}</p>
+                <p class="card-suggestion"><span class="suggestion-label">Sugestão de correção:</span> {{ violation.suggestion }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">Nenhuma violação de camada detectada.</p>
+        {% endif %}
     </section>
 
     <section id="cycles">
@@ -332,46 +426,46 @@
                 <span class="badge cycle">Ciclo de {{ cycle.length }} pacote{{ 's' if cycle.length != 1 else '' }}</span>
                 <div class="card-path">{{ cycle.path }}</div>
                 <p class="card-explanation">{{ cycle.explanation }}</p>
-                <div class="card-suggestion">
-                    <span class="suggestion-icon">💡</span>
-                    <span><strong>Sugestão:</strong> {{ cycle.suggestion }}</span>
-                </div>
+                <p class="card-suggestion"><span class="suggestion-label">Sugestão de correção:</span> {{ cycle.suggestion }}</p>
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <p class="empty-state">✓ Nenhum ciclo de dependência detectado.</p>
+        <p class="empty-state">Nenhum ciclo de dependência detectado.</p>
         {% endif %}
     </section>
 
-    <section id="violations">
-        <h2>Violações de camada <span class="count-pill">{{ violations | length }}</span></h2>
-        {% if violations %}
+    <section id="suggestions">
+        <h2>Sugestões de melhoria <span class="count-pill">{{ suggestions | length }}</span></h2>
+        {% if suggestions %}
+        <p class="section-intro">
+            Ações práticas para resolver cada violação e ciclo listados acima, em ordem de
+            aparição.
+        </p>
         <div class="card-list">
-            {% for violation in violations %}
-            <div class="card violation">
-                <span class="badge {{ 'violation-skip' if violation.type == 'LAYER_SKIP' else 'violation-inversion' }}">
-                    {{ 'Camada pulada' if violation.type == 'LAYER_SKIP' else 'Inversão de camada' }}
+            {% for item in suggestions %}
+            <div class="card suggestion">
+                <span class="badge {{ 'violation-skip' if item.kind == 'violation' else 'cycle' }}">
+                    {{ 'Violação de camada' if item.kind == 'violation' else 'Ciclo de dependência' }}
                 </span>
-                <div class="card-path">{{ violation.from }} ({{ violation.from_layer | lower }}) → {{ violation.to }} ({{ violation.to_layer | lower }})</div>
-                <p class="card-explanation">{{ violation.explanation }}</p>
-                <div class="card-suggestion">
-                    <span class="suggestion-icon">💡</span>
-                    <span><strong>Sugestão:</strong> {{ violation.suggestion }}</span>
-                </div>
+                <p class="suggestion-context">{{ item.context }}</p>
+                <p class="suggestion-text">{{ item.text }}</p>
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <p class="empty-state">✓ Nenhuma violação de camada detectada.</p>
+        <p class="empty-state">Nenhuma ação necessária — nenhuma violação ou ciclo foi detectado.</p>
         {% endif %}
     </section>
 
     <footer>
-        Gerado pelo ArqSync. A detecção de ciclos independe de convenção de nomenclatura; a
-        detecção de violações de camada e de estilo arquitetural depende dos pacotes seguirem
-        convenções de nomenclatura reconhecidas (ex.: <code>controller</code>/<code>service</code>/<code>repository</code>/<code>domain</code>) —
-        trate como um indício, não uma verdade absoluta.
+        <p class="footer-brand">Gerado por ArqSync v1.2.0</p>
+        <p class="footer-note">
+            A detecção de ciclos independe de convenção de nomenclatura; a detecção de violações
+            de camada e de estilo arquitetural depende dos pacotes seguirem convenções de
+            nomenclatura reconhecidas (ex.: <code>controller</code>/<code>service</code>/<code>repository</code>/<code>domain</code>) —
+            trate como um indício, não uma verdade absoluta.
+        </p>
     </footer>
 </main>
 <script>

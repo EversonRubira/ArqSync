@@ -39,7 +39,9 @@ def test_report_with_cycle_and_violation_renders_mermaid_cycles_and_violations(t
     assert "Introduza a chamada através de service" in html  # violation suggestion
     assert "Quebre o ciclo extraindo" in html  # cycle suggestion
     assert "Arquitetura detectada: Arquitetura em Camadas (Layered)" in html
-    assert "3" in html  # totalPackages metric tile
+    assert "1 violação crítica e 1 ciclo de dependência" in html  # header status summary
+    assert "Sugestões de melhoria" in html
+    assert "Gerado por ArqSync v1.2.0" in html
 
 
 def test_report_without_cycles_or_violations_renders_empty_state(tmp_path):
@@ -47,9 +49,11 @@ def test_report_without_cycles_or_violations_renders_empty_state(tmp_path):
 
     html = gr.render_html(report_data)
 
-    assert "Nenhum ciclo de dependência detectado." in html
     assert "Nenhuma violação de camada detectada." in html
+    assert "Nenhum ciclo de dependência detectado." in html
     assert "Arquitetura detectada: Não identificado" in html
+    assert "Nenhum problema estrutural detectado" in html  # header status summary
+    assert "Nenhuma ação necessária" in html  # suggestions empty state
 
 
 def test_missing_json_path_exits_non_zero_with_stderr_message(tmp_path, capsys):
@@ -108,6 +112,60 @@ def test_mermaid_diagram_for_empty_graph_does_not_crash():
     diagram = gr.build_mermaid_diagram({"nodes": [], "edges": []})
 
     assert diagram.startswith("graph TD")
+
+
+def test_status_view_with_no_problems_is_ok():
+    status = gr.build_status_view({"violationCount": 0, "cycleCount": 0})
+
+    assert status == {"headline": "Nenhum problema estrutural detectado", "severity": "ok"}
+
+
+def test_status_view_with_only_violations_is_critical_and_singular():
+    status = gr.build_status_view({"violationCount": 1, "cycleCount": 0})
+
+    assert status == {"headline": "1 violação crítica", "severity": "critical"}
+
+
+def test_status_view_with_only_cycles_is_warning_and_plural():
+    status = gr.build_status_view({"violationCount": 0, "cycleCount": 2})
+
+    assert status == {"headline": "2 ciclos de dependência", "severity": "warning"}
+
+
+def test_status_view_with_both_combines_and_is_critical():
+    status = gr.build_status_view({"violationCount": 2, "cycleCount": 1})
+
+    assert status == {
+        "headline": "2 violações críticas e 1 ciclo de dependência",
+        "severity": "critical",
+    }
+
+
+def test_metrics_summary_view_counts_edges_as_total_dependencies():
+    metrics = {"totalPackages": 3, "totalClasses": 5, "cycleCount": 1, "violationCount": 1}
+    dependency_graph = {"edges": [{"from": {}, "to": {}}, {"from": {}, "to": {}}]}
+
+    summary = gr.build_metrics_summary_view(metrics, dependency_graph)
+
+    assert summary == {
+        "total_packages": 3,
+        "total_classes": 5,
+        "total_dependencies": 2,
+        "cycle_count": 1,
+        "violation_count": 1,
+    }
+
+
+def test_suggestions_view_combines_violations_then_cycles_in_order():
+    violations_view = [{"from": "com.acme.controller", "to": "com.acme.repository", "suggestion": "fix violation"}]
+    cycles_view = [{"path": "com.acme.a → com.acme.b → com.acme.a", "suggestion": "fix cycle"}]
+
+    suggestions = gr.build_suggestions_view(violations_view, cycles_view)
+
+    assert suggestions == [
+        {"kind": "violation", "context": "com.acme.controller → com.acme.repository", "text": "fix violation"},
+        {"kind": "cycle", "context": "com.acme.a → com.acme.b → com.acme.a", "text": "fix cycle"},
+    ]
 
 
 if __name__ == "__main__":
