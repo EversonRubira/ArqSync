@@ -7,6 +7,8 @@ import com.arqsync.persistence.PersistenceService;
 import com.arqsync.scanner.InvalidProjectPathException;
 import com.arqsync.scanner.ProjectScan;
 import com.arqsync.scanner.ScannerService;
+import com.arqsync.suggest.AiSuggestion;
+import com.arqsync.suggest.GroqSuggestionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -53,6 +55,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
     private final DependencyAnalyzer dependencyAnalyzer;
     private final PersistenceService persistenceService;
     private final ReportExporter reportExporter;
+    private final GroqSuggestionService groqSuggestionService;
     private final ProcessExiter processExiter;
 
     public ArqSyncPipelineRunner(
@@ -61,6 +64,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
             DependencyAnalyzer dependencyAnalyzer,
             PersistenceService persistenceService,
             ReportExporter reportExporter,
+            GroqSuggestionService groqSuggestionService,
             ProcessExiter processExiter
     ) {
         this.gitRepositoryResolver = gitRepositoryResolver;
@@ -68,6 +72,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         this.dependencyAnalyzer = dependencyAnalyzer;
         this.persistenceService = persistenceService;
         this.reportExporter = reportExporter;
+        this.groqSuggestionService = groqSuggestionService;
         this.processExiter = processExiter;
     }
 
@@ -75,7 +80,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         List<String> nonOptionArgs = args.getNonOptionArgs();
         if (nonOptionArgs.isEmpty() || nonOptionArgs.get(0).isBlank()) {
-            log.error("Uso: java -jar arqsync.jar <caminho-do-projeto | URL-do-repositorio> [--keep] [--pdf] [--json]");
+            log.error("Uso: java -jar arqsync.jar <caminho-do-projeto | URL-do-repositorio> [--keep] [--pdf] [--json] [--suggest]");
             processExiter.exit(EXIT_FATAL_ERROR);
             return;
         }
@@ -84,6 +89,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         boolean keep = args.containsOption("keep");
         boolean generatePdf = args.containsOption("pdf");
         boolean showJson = args.containsOption("json");
+        boolean suggest = args.containsOption("suggest");
 
         ProjectScan projectScan;
         Path clonedDir = null;
@@ -111,7 +117,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
 
         Path outputDir;
         try {
-            outputDir = runAnalysisPersistenceAndExport(projectScan, generatePdf);
+            outputDir = runAnalysisPersistenceAndExport(projectScan, generatePdf, suggest);
         } finally {
             cleanupTempCloneDir(clonedDir, keep);
         }
@@ -128,7 +134,7 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
      * Returns the report output directory on success, or {@code null} if a
      * fatal error occurred (already logged and reported to {@link #processExiter}).
      */
-    private Path runAnalysisPersistenceAndExport(ProjectScan projectScan, boolean generatePdf) {
+    private Path runAnalysisPersistenceAndExport(ProjectScan projectScan, boolean generatePdf, boolean suggest) {
         log.info("Analyzing dependencies...");
         AnalysisResult analysisResult;
         try {
@@ -144,11 +150,13 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         // (SPEC-persistence.md, 2.1; SPEC-cli.md, 2.8).
         persistenceService.save(projectScan, analysisResult);
 
+        List<AiSuggestion> aiSuggestions = suggest ? requestAiSuggestions(projectScan, analysisResult) : List.of();
+
         Path outputDir = Paths.get("arqsync-reports", LocalDateTime.now().format(TIMESTAMP_FORMAT));
 
         log.info("Generating report...");
         try {
-            reportExporter.export(projectScan, analysisResult, outputDir, generatePdf);
+            reportExporter.export(projectScan, analysisResult, aiSuggestions, outputDir, generatePdf);
         } catch (Exception e) {
             log.error("Failed to generate report: {}", e.getMessage(), e);
             processExiter.exit(EXIT_FATAL_ERROR);
@@ -156,6 +164,52 @@ public class ArqSyncPipelineRunner implements ApplicationRunner {
         }
 
         return outputDir;
+    }
+
+    /**
+     * Requests AI suggestions from Groq ({@code --suggest}). Prints a
+     * consent notice before every call (a structured summary of the
+     * analysis - no source code - is sent to the Groq API) and never fails
+     * the pipeline: {@link GroqSuggestionService#suggest} already returns an
+     * empty list on any failure (missing/invalid key, network error,
+     * malformed response), which is handled entirely inside the service.
+     */
+    private List<AiSuggestion> requestAiSuggestions(ProjectScan projectScan, AnalysisResult analysisResult) {
+        log.warn("[AVISO] --suggest enviará um resumo estruturado da análise (métricas, ciclos, violações e "
+                + "estilo arquitetural - sem código-fonte) para a API Groq (https://api.groq.com).");
+        log.info("Requesting AI suggestions from Groq...");
+        List<AiSuggestion> suggestions = groqSuggestionService.suggest(projectScan, analysisResult);
+        printAiSuggestions(suggestions);
+        return suggestions;
+    }
+
+    private static final String SUGGESTION_SEPARATOR = "-".repeat(60);
+
+    /**
+     * Prints AI suggestions to stdout, already sorted by fixed severity
+     * (cycles > layer violations > style) by {@link GroqSuggestionService}.
+     * Prints nothing when the list is empty - the WARN/ERROR log already
+     * emitted by the service explains why, if --suggest was passed but
+     * yielded nothing.
+     */
+    private void printAiSuggestions(List<AiSuggestion> suggestions) {
+        if (suggestions.isEmpty()) {
+            return;
+        }
+        System.out.println();
+        System.out.println(SUGGESTION_SEPARATOR);
+        System.out.println("Sugestões de IA (Groq):");
+        for (int i = 0; i < suggestions.size(); i++) {
+            AiSuggestion suggestion = suggestions.get(i);
+            System.out.println(SUGGESTION_SEPARATOR);
+            System.out.println((i + 1) + ". [" + suggestion.type() + "] " + suggestion.title());
+            System.out.println(suggestion.description());
+            if (suggestion.codeExample() != null) {
+                System.out.println();
+                System.out.println(suggestion.codeExample());
+            }
+        }
+        System.out.println(SUGGESTION_SEPARATOR);
     }
 
     /**

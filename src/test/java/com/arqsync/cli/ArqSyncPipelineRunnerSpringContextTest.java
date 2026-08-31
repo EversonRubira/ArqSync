@@ -5,6 +5,7 @@ import com.arqsync.exporter.ReportExporter;
 import com.arqsync.persistence.DefaultPersistenceService;
 import com.arqsync.persistence.PersistenceService;
 import com.arqsync.scanner.ScannerService;
+import com.arqsync.suggest.GroqSuggestionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -45,6 +46,9 @@ class ArqSyncPipelineRunnerSpringContextTest {
     @Autowired
     private ReportExporter reportExporter;
 
+    @Autowired
+    private GroqSuggestionService groqSuggestionService;
+
     @Test
     void contextLoadsWithAllPipelineBeansWired() {
         assertThat(pipelineRunner).isNotNull();
@@ -52,6 +56,7 @@ class ArqSyncPipelineRunnerSpringContextTest {
         assertThat(dependencyAnalyzer).isNotNull();
         assertThat(persistenceService).isNotNull();
         assertThat(reportExporter).isNotNull();
+        assertThat(groqSuggestionService).isNotNull();
         assertThat(processExiter).isNotNull();
         // H2 (the test database) is reachable, so the real, JPA-backed implementation
         // should be wired here, not the NoOpPersistenceService fallback.

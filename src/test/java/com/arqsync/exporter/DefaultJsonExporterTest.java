@@ -76,7 +76,7 @@ class DefaultJsonExporterTest {
 
     @Test
     void writesReportJsonWithMetricsCyclesViolationsAndDependencyCounts(@TempDir Path outputDir) throws IOException {
-        Path jsonPath = jsonExporter.export(projectScan(), analysisResultWithCycleAndViolation(), outputDir);
+        Path jsonPath = jsonExporter.export(projectScan(), analysisResultWithCycleAndViolation(), List.of(), outputDir);
 
         assertThat(jsonPath).isEqualTo(outputDir.resolve("report.json"));
         assertThat(Files.exists(jsonPath)).isTrue();
@@ -99,7 +99,7 @@ class DefaultJsonExporterTest {
 
     @Test
     void resultWithoutCyclesOrViolationsProducesEmptyArraysWithoutError(@TempDir Path outputDir) throws IOException {
-        Path jsonPath = jsonExporter.export(projectScan(), emptyAnalysisResult(), outputDir);
+        Path jsonPath = jsonExporter.export(projectScan(), emptyAnalysisResult(), List.of(), outputDir);
 
         JsonNode root = objectMapper.readTree(jsonPath.toFile());
         assertThat(root.get("cycles")).isEmpty();
@@ -109,7 +109,7 @@ class DefaultJsonExporterTest {
     @Test
     void generatedAtIsPresentAndCloseToNow(@TempDir Path outputDir) throws IOException {
         Instant before = Instant.now();
-        Path jsonPath = jsonExporter.export(projectScan(), emptyAnalysisResult(), outputDir);
+        Path jsonPath = jsonExporter.export(projectScan(), emptyAnalysisResult(), List.of(), outputDir);
         Instant after = Instant.now();
 
         JsonNode root = objectMapper.readTree(jsonPath.toFile());
@@ -120,7 +120,7 @@ class DefaultJsonExporterTest {
 
     @Test
     void writesTheFileExactlyAtOutputDirReportJson(@TempDir Path outputDir) {
-        Path jsonPath = jsonExporter.export(projectScan(), emptyAnalysisResult(), outputDir);
+        Path jsonPath = jsonExporter.export(projectScan(), emptyAnalysisResult(), List.of(), outputDir);
 
         assertThat(jsonPath.getParent()).isEqualTo(outputDir);
         assertThat(jsonPath.getFileName().toString()).isEqualTo("report.json");

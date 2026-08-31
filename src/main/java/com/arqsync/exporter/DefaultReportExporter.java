@@ -2,6 +2,7 @@ package com.arqsync.exporter;
 
 import com.arqsync.analyzer.AnalysisResult;
 import com.arqsync.scanner.ProjectScan;
+import com.arqsync.suggest.AiSuggestion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 @Service
 public class DefaultReportExporter implements ReportExporter {
@@ -25,14 +27,15 @@ public class DefaultReportExporter implements ReportExporter {
     }
 
     @Override
-    public void export(ProjectScan projectScan, AnalysisResult analysisResult, Path outputDir, boolean generatePdf) {
+    public void export(ProjectScan projectScan, AnalysisResult analysisResult, List<AiSuggestion> aiSuggestions,
+                        Path outputDir, boolean generatePdf) {
         try {
             Files.createDirectories(outputDir);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to create output directory: " + outputDir, e);
         }
 
-        Path jsonPath = jsonExporter.export(projectScan, analysisResult, outputDir);
+        Path jsonPath = jsonExporter.export(projectScan, analysisResult, aiSuggestions, outputDir);
 
         boolean htmlGenerated = htmlReportGenerator.generate(jsonPath, outputDir, generatePdf);
         if (!htmlGenerated) {

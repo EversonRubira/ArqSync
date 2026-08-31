@@ -16,6 +16,9 @@ import com.arqsync.scanner.DefaultScannerService;
 import com.arqsync.scanner.InvalidProjectPathException;
 import com.arqsync.scanner.ProjectScan;
 import com.arqsync.scanner.ScannerService;
+import com.arqsync.suggest.AiSuggestion;
+import com.arqsync.suggest.GroqSuggestionService;
+import com.arqsync.suggest.SuggestionType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -49,13 +52,14 @@ class ArqSyncPipelineRunnerTest {
     private final DependencyAnalyzer dependencyAnalyzer = mock(DependencyAnalyzer.class);
     private final PersistenceService persistenceService = mock(PersistenceService.class);
     private final ReportExporter reportExporter = mock(ReportExporter.class);
+    private final GroqSuggestionService groqSuggestionService = mock(GroqSuggestionService.class);
     private final ProcessExiter processExiter = mock(ProcessExiter.class);
 
     private final GitRepositoryResolver gitRepositoryResolver = new GitRepositoryResolver();
 
     private final ArqSyncPipelineRunner runner = new ArqSyncPipelineRunner(
             gitRepositoryResolver, scannerService, dependencyAnalyzer, persistenceService, reportExporter,
-            processExiter
+            groqSuggestionService, processExiter
     );
 
     private Path createdOutputDir;
@@ -111,19 +115,19 @@ class ArqSyncPipelineRunnerTest {
         when(scannerService.scan(any())).thenReturn(projectScan);
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
+            Path outputDir = invocation.getArgument(3);
             createdOutputDir = outputDir;
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             return null;
-        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any(), anyBoolean());
+        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any(), any(), anyBoolean());
 
         runner.run(argsWith("/repo/my-project"));
 
         verify(scannerService).scan(Paths.get("/repo/my-project"));
         verify(dependencyAnalyzer).analyze(projectScan);
         verify(persistenceService).save(projectScan, analysisResult);
-        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), anyBoolean());
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), any(), anyBoolean());
         verify(processExiter, never()).exit(anyInt());
         assertThat(createdOutputDir.resolve("report.json")).exists();
     }
@@ -157,14 +161,14 @@ class ArqSyncPipelineRunnerTest {
         when(scannerService.scan(any())).thenReturn(projectScan);
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
-            createdOutputDir = invocation.getArgument(2);
+            createdOutputDir = invocation.getArgument(3);
             return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
 
         runner.run(argsWith("/repo/my-project"));
 
         verify(persistenceService).save(projectScan, analysisResult);
-        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), anyBoolean());
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), any(), anyBoolean());
         verify(processExiter, never()).exit(anyInt());
     }
 
@@ -175,13 +179,13 @@ class ArqSyncPipelineRunnerTest {
         when(scannerService.scan(any())).thenReturn(projectScan);
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
+            Path outputDir = invocation.getArgument(3);
             createdOutputDir = outputDir;
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             // no report.html written - simulates Python being unavailable
             return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
 
         runner.run(argsWith("/repo/my-project"));
 
@@ -198,7 +202,7 @@ class ArqSyncPipelineRunnerTest {
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
             throw new RuntimeException("could not write report.json");
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
 
         runner.run(argsWith("/repo/my-project"));
 
@@ -233,25 +237,25 @@ class ArqSyncPipelineRunnerTest {
         );
         ArqSyncPipelineRunner realishRunner = new ArqSyncPipelineRunner(
                 gitRepositoryResolver, realScanner, realAnalyzer, persistenceService, reportExporter,
-                processExiter
+                groqSuggestionService, processExiter
         );
         Path fixture = Paths.get(Objects.requireNonNull(
                 getClass().getClassLoader().getResource("fixtures/scanner/valid-project")
         ).toURI());
 
         doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
+            Path outputDir = invocation.getArgument(3);
             createdOutputDir = outputDir;
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             Files.writeString(outputDir.resolve("report.html"), "<html></html>");
             return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
 
         realishRunner.run(argsWith(fixture.toString()));
 
         verify(persistenceService).save(any(), any());
-        verify(reportExporter).export(any(), any(), any(), anyBoolean());
+        verify(reportExporter).export(any(), any(), any(), any(), anyBoolean());
         verify(processExiter, never()).exit(anyInt());
         assertThat(createdOutputDir.resolve("report.html")).exists();
     }
@@ -268,7 +272,7 @@ class ArqSyncPipelineRunnerTest {
     private ArqSyncPipelineRunner runnerWithMockedGitResolver(GitRepositoryResolver mockResolver) {
         return new ArqSyncPipelineRunner(
                 mockResolver, scannerService, dependencyAnalyzer, persistenceService, reportExporter,
-                processExiter
+                groqSuggestionService, processExiter
         );
     }
 
@@ -283,12 +287,12 @@ class ArqSyncPipelineRunnerTest {
         when(scannerService.scan(clonedDir)).thenReturn(projectScan);
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
+            Path outputDir = invocation.getArgument(3);
             createdOutputDir = outputDir;
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             return null;
-        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any(), anyBoolean());
+        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any(), any(), anyBoolean());
 
         urlRunner.run(argsWith(GIT_URL, false));
 
@@ -325,12 +329,12 @@ class ArqSyncPipelineRunnerTest {
         when(scannerService.scan(clonedDir)).thenReturn(projectScan);
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
+            Path outputDir = invocation.getArgument(3);
             createdOutputDir = outputDir;
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             return null;
-        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any(), anyBoolean());
+        }).when(reportExporter).export(eq(projectScan), eq(analysisResult), any(), any(), anyBoolean());
 
         urlRunner.run(argsWith(GIT_URL, true));
 
@@ -382,13 +386,13 @@ class ArqSyncPipelineRunnerTest {
         when(scannerService.scan(any())).thenReturn(projectScan);
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
-            createdOutputDir = invocation.getArgument(2);
+            createdOutputDir = invocation.getArgument(3);
             return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
 
         runner.run(argsWithPdfAndJson("/repo/my-project", true, false));
 
-        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), eq(true));
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), any(), eq(true));
     }
 
     @Test
@@ -398,13 +402,13 @@ class ArqSyncPipelineRunnerTest {
         when(scannerService.scan(any())).thenReturn(projectScan);
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
-            createdOutputDir = invocation.getArgument(2);
+            createdOutputDir = invocation.getArgument(3);
             return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
 
         runner.run(argsWith("/repo/my-project"));
 
-        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), eq(false));
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), any(), any(), eq(false));
     }
 
     @Test
@@ -414,13 +418,13 @@ class ArqSyncPipelineRunnerTest {
         when(scannerService.scan(any())).thenReturn(projectScan);
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
+            Path outputDir = invocation.getArgument(3);
             createdOutputDir = outputDir;
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             Files.writeString(outputDir.resolve("report.html"), "<html></html>");
             return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
 
         String withoutJsonFlag = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", false, false)));
         String withJsonFlag = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", false, true)));
@@ -436,14 +440,14 @@ class ArqSyncPipelineRunnerTest {
         when(scannerService.scan(any())).thenReturn(projectScan);
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
+            Path outputDir = invocation.getArgument(3);
             createdOutputDir = outputDir;
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             Files.writeString(outputDir.resolve("report.html"), "<html></html>");
             Files.writeString(outputDir.resolve("report.pdf"), "%PDF-1.4");
             return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
 
         String output = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", true, false)));
 
@@ -467,18 +471,81 @@ class ArqSyncPipelineRunnerTest {
         when(scannerService.scan(any())).thenReturn(projectScan);
         when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
         doAnswer(invocation -> {
-            Path outputDir = invocation.getArgument(2);
+            Path outputDir = invocation.getArgument(3);
             createdOutputDir = outputDir;
             Files.createDirectories(outputDir);
             Files.writeString(outputDir.resolve("report.json"), "{}");
             Files.writeString(outputDir.resolve("report.html"), "<html></html>");
             // no report.pdf written - simulates the optional PDF library being unavailable
             return null;
-        }).when(reportExporter).export(any(), any(), any(), anyBoolean());
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
 
         String output = captureStdout(() -> runner.run(argsWithPdfAndJson("/repo/my-project", true, false)));
 
         assertThat(output).doesNotContain("PDF also available at");
+    }
+
+    private ApplicationArguments argsWithSuggest(String nonOptionArg, boolean suggest) {
+        ApplicationArguments args = mock(ApplicationArguments.class);
+        when(args.getNonOptionArgs()).thenReturn(List.of(nonOptionArg));
+        when(args.containsOption("suggest")).thenReturn(suggest);
+        return args;
+    }
+
+    @Test
+    void suggestFlagAbsentByDefaultNeverCallsGroqSuggestionService() {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        doAnswer(invocation -> {
+            createdOutputDir = invocation.getArgument(3);
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
+
+        runner.run(argsWith("/repo/my-project"));
+
+        verifyNoInteractions(groqSuggestionService);
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), eq(List.of()), any(), anyBoolean());
+    }
+
+    @Test
+    void suggestFlagRequestsAiSuggestionsAndPassesThemToTheReportExporter() {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        List<AiSuggestion> suggestions = List.of(
+                new AiSuggestion(SuggestionType.CYCLE_BREAK, "Quebre o ciclo", "Extraia uma interface.", null)
+        );
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        when(groqSuggestionService.suggest(projectScan, analysisResult)).thenReturn(suggestions);
+        doAnswer(invocation -> {
+            createdOutputDir = invocation.getArgument(3);
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
+
+        runner.run(argsWithSuggest("/repo/my-project", true));
+
+        verify(groqSuggestionService).suggest(projectScan, analysisResult);
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), eq(suggestions), any(), anyBoolean());
+    }
+
+    @Test
+    void suggestFlagWithNoSuggestionsReturnedStillCompletesSuccessfully() {
+        ProjectScan projectScan = aProjectScan();
+        AnalysisResult analysisResult = anAnalysisResult();
+        when(scannerService.scan(any())).thenReturn(projectScan);
+        when(dependencyAnalyzer.analyze(projectScan)).thenReturn(analysisResult);
+        when(groqSuggestionService.suggest(projectScan, analysisResult)).thenReturn(List.of());
+        doAnswer(invocation -> {
+            createdOutputDir = invocation.getArgument(3);
+            return null;
+        }).when(reportExporter).export(any(), any(), any(), any(), anyBoolean());
+
+        runner.run(argsWithSuggest("/repo/my-project", true));
+
+        verify(processExiter, never()).exit(anyInt());
+        verify(reportExporter).export(eq(projectScan), eq(analysisResult), eq(List.of()), any(), anyBoolean());
     }
 
     private String captureStdout(Runnable action) {

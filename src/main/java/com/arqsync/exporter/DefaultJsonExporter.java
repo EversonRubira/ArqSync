@@ -2,6 +2,7 @@ package com.arqsync.exporter;
 
 import com.arqsync.analyzer.AnalysisResult;
 import com.arqsync.scanner.ProjectScan;
+import com.arqsync.suggest.AiSuggestion;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -11,6 +12,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 
 @Component
 public class DefaultJsonExporter implements JsonExporter {
@@ -25,8 +27,8 @@ public class DefaultJsonExporter implements JsonExporter {
     }
 
     @Override
-    public Path export(ProjectScan projectScan, AnalysisResult analysisResult, Path outputDir) {
-        ReportData reportData = toReportData(projectScan, analysisResult);
+    public Path export(ProjectScan projectScan, AnalysisResult analysisResult, List<AiSuggestion> aiSuggestions, Path outputDir) {
+        ReportData reportData = toReportData(projectScan, analysisResult, aiSuggestions);
         Path jsonPath = outputDir.resolve("report.json");
         try {
             objectMapper.writeValue(jsonPath.toFile(), reportData);
@@ -36,7 +38,7 @@ public class DefaultJsonExporter implements JsonExporter {
         return jsonPath;
     }
 
-    private ReportData toReportData(ProjectScan projectScan, AnalysisResult analysisResult) {
+    private ReportData toReportData(ProjectScan projectScan, AnalysisResult analysisResult, List<AiSuggestion> aiSuggestions) {
         return new ReportData(
                 projectNameFrom(projectScan.rootPath()),
                 projectScan.rootPath(),
@@ -45,7 +47,8 @@ public class DefaultJsonExporter implements JsonExporter {
                 analysisResult.cycles(),
                 analysisResult.violations(),
                 analysisResult.dependencyGraph(),
-                analysisResult.architectureStyle()
+                analysisResult.architectureStyle(),
+                aiSuggestions
         );
     }
 
