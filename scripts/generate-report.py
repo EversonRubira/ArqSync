@@ -413,6 +413,23 @@ def build_suggestions_view(violations_view: list, cycles_view: list) -> list:
     return suggestions
 
 
+def build_ai_suggestions_view(ai_suggestions: list) -> list:
+    """Straight transcription of the AI-generated suggestions already sorted
+    by fixed severity on the Java side (DefaultGroqSuggestionService) - no
+    reordering or reinterpretation here, same principle as the rest of this
+    module (SPEC-exporter.md, 2.5). Empty (the default) when --suggest
+    wasn't passed or the Groq API returned nothing."""
+    return [
+        {
+            "type": item.get("type", "GENERAL"),
+            "title": item.get("title", ""),
+            "description": item.get("description", ""),
+            "codeExample": item.get("codeExample"),
+        }
+        for item in ai_suggestions
+    ]
+
+
 def format_generated_at(raw: str) -> str:
     # Purely cosmetic: drop sub-second precision and the ISO 'T' separator.
     # Same instant, just easier to read - not a reinterpretation of the data.
@@ -446,6 +463,7 @@ def render_html(report_data: dict) -> str:
         cycle_groups=build_cycle_groups(cycles_view, raw_cycles, dependency_graph),
         violations=violations_view,
         suggestions=build_suggestions_view(violations_view, cycles_view),
+        ai_suggestions=build_ai_suggestions_view(report_data.get("aiSuggestions", [])),
         mermaid_diagram=build_mermaid_diagram(dependency_graph, raw_cycles),
         pdf_diagram_svg=build_pdf_diagram_svg(dependency_graph, raw_cycles, violations_view),
         architecture_style=build_architecture_style_view(report_data.get("architectureStyle", {})),

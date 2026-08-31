@@ -365,6 +365,8 @@
         .badge.cycle { background: var(--cycle-bg); color: var(--cycle); border: 1px solid var(--cycle-border); }
         .badge.violation-skip { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
         .badge.violation-inversion { background: #f1e9fd; color: #7233c7; border: 1px solid #ddc4f7; }
+        .badge.style-migration { background: var(--accent-bg); color: var(--accent-dark); border: 1px solid var(--accent-border); }
+        .badge.general { background: var(--surface-alt); color: var(--text-muted); border: 1px solid var(--border); }
 
         .card-explanation { margin: 0 0 0.6rem; color: var(--text); font-size: 0.92rem; }
         .card-suggestion {
@@ -375,6 +377,22 @@
             color: var(--text-muted);
         }
         .card-suggestion .suggestion-label { color: var(--text); font-weight: 600; }
+
+        /* ---- AI suggestions section (--suggest, Groq) ---- */
+        .card.ai-suggestion { border-left-color: var(--accent); }
+        .ai-suggestion-title { margin: 0.4rem 0 0.5rem; font-size: 1rem; font-weight: 700; color: var(--text); }
+        .ai-suggestion-description { margin: 0 0 0.6rem; color: var(--text); font-size: 0.92rem; }
+        .ai-suggestion-code {
+            background: var(--navy);
+            color: #e6ecff;
+            border-radius: 8px;
+            padding: 0.75rem 0.9rem;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            overflow-x: auto;
+            white-space: pre;
+            margin: 0;
+        }
 
         /* ---- Suggestions section ---- */
         .suggestion-header {
@@ -537,6 +555,7 @@
         <a href="#violations">Violações</a>
         <a href="#cycles">Ciclos</a>
         <a href="#suggestions">Sugestões</a>
+        {% if ai_suggestions %}<a href="#ai-suggestions">Sugestões de IA</a>{% endif %}
         <a href="#diagram">Diagrama</a>
     </nav>
 
@@ -709,6 +728,33 @@
         <p class="empty-state">Nenhuma ação necessária — nenhuma violação ou ciclo foi detectado.</p>
         {% endif %}
     </section>
+
+    {% if ai_suggestions %}
+    <section id="ai-suggestions">
+        <h2>Sugestões de IA (Groq) <span class="count-pill">{{ ai_suggestions | length }}</span></h2>
+        <p class="section-intro">
+            Sugestões geradas por IA a partir de um resumo estruturado desta análise (métricas,
+            ciclos, violações e estilo arquitetural — nenhum código-fonte foi enviado). São apenas
+            recomendações para avaliação humana: o ArqSync nunca aplica refatorações
+            automaticamente. Priorizadas por impacto: quebra de ciclos primeiro, depois violações
+            de camada, depois estilo arquitetural.
+        </p>
+        <div class="card-list">
+            {% for item in ai_suggestions %}
+            <div class="card ai-suggestion">
+                <span class="badge {{ {'CYCLE_BREAK': 'cycle', 'LAYER_VIOLATION': 'violation-skip', 'STYLE_MIGRATION': 'style-migration'}.get(item.type, 'general') }}">
+                    {{ {'CYCLE_BREAK': 'Quebra de ciclo', 'LAYER_VIOLATION': 'Violação de camada', 'STYLE_MIGRATION': 'Migração de estilo'}.get(item.type, 'Geral') }}
+                </span>
+                <p class="ai-suggestion-title">{{ item.title }}</p>
+                <p class="ai-suggestion-description">{{ item.description }}</p>
+                {% if item.codeExample %}
+                <pre class="ai-suggestion-code"><code>{{ item.codeExample }}</code></pre>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
 
     <section id="diagram">
         <h2>Diagrama de dependências</h2>

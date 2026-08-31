@@ -242,6 +242,51 @@ def test_suggestions_view_violation_without_class_samples_has_no_impact_label():
     assert suggestions[0]["impact_label"] == ""
 
 
+def test_ai_suggestions_view_is_a_straight_transcription_preserving_order():
+    ai_suggestions = [
+        {"type": "CYCLE_BREAK", "title": "Quebre o ciclo", "description": "d1", "codeExample": "interface X {}"},
+        {"type": "GENERAL", "title": "Dica geral", "description": "d2", "codeExample": None},
+    ]
+
+    view = gr.build_ai_suggestions_view(ai_suggestions)
+
+    assert view == [
+        {"type": "CYCLE_BREAK", "title": "Quebre o ciclo", "description": "d1", "codeExample": "interface X {}"},
+        {"type": "GENERAL", "title": "Dica geral", "description": "d2", "codeExample": None},
+    ]
+
+
+def test_ai_suggestions_view_defaults_to_empty_list_when_key_missing():
+    assert gr.build_ai_suggestions_view([]) == []
+
+
+def test_render_html_without_ai_suggestions_omits_the_section():
+    report_data = load_fixture("with-cycle-and-violation.json")
+
+    html = gr.render_html(report_data)
+
+    assert "ai-suggestions" not in html
+    assert "Sugestões de IA" not in html
+
+
+def test_render_html_with_ai_suggestions_renders_the_section(monkeypatch):
+    report_data = dict(load_fixture("with-cycle-and-violation.json"))
+    report_data["aiSuggestions"] = [
+        {"type": "CYCLE_BREAK", "title": "Quebre o ciclo A-B", "description": "Extraia uma interface.",
+         "codeExample": "interface Shared {}"},
+        {"type": "GENERAL", "title": "Dica geral", "description": "Adicione testes.", "codeExample": None},
+    ]
+    monkeypatch.setattr(gr, "build_pdf_diagram_svg", lambda *a, **k: "")
+
+    html = gr.render_html(report_data)
+
+    assert 'id="ai-suggestions"' in html
+    assert "Sugestões de IA (Groq)" in html
+    assert "Quebre o ciclo A-B" in html
+    assert "interface Shared {}" in html
+    assert "Dica geral" in html
+
+
 def test_dependency_counts_view_sorted_by_incoming_descending():
     metrics = {
         "dependencyCounts": [

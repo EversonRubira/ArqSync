@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  java-tests:
+    name: Java tests (mvn test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: ./mvnw -B test
+
+  python-tests:
+    name: Python tests (generate-report.py)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # scripts/requirements.txt pins jinja2 (required) plus weasyprint and
+      # graphviz (optional at runtime - generate-report.py degrades
+      # gracefully without them), but the test suite exercises the graceful-
+      # degradation paths for both, so it needs them installed to run in full.
+      - run: pip install -r scripts/requirements.txt
+      - run: pytest scripts/tests -v

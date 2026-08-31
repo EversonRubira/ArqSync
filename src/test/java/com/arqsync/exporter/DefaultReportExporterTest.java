@@ -56,7 +56,7 @@ class DefaultReportExporterTest {
                 new DefaultHtmlReportGenerator(realScriptPath(), DefaultHtmlReportGenerator.DEFAULT_PYTHON_COMMANDS);
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
-        exporter.export(projectScan(), emptyAnalysisResult(), outputDir, false);
+        exporter.export(projectScan(), emptyAnalysisResult(), List.of(), outputDir, false);
 
         assertThat(outputDir.resolve("report.json")).exists();
         assertThat(outputDir.resolve("report.html")).exists();
@@ -68,7 +68,7 @@ class DefaultReportExporterTest {
                 new DefaultHtmlReportGenerator(realScriptPath(), List.of("no-such-python-interpreter"));
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
-        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), outputDir, false))
+        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), List.of(), outputDir, false))
                 .doesNotThrowAnyException();
 
         assertThat(outputDir.resolve("report.json")).exists();
@@ -82,7 +82,7 @@ class DefaultReportExporterTest {
                 new DefaultHtmlReportGenerator(fixtureScript("always-fails.py"), DefaultHtmlReportGenerator.DEFAULT_PYTHON_COMMANDS);
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
-        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), outputDir, false))
+        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), List.of(), outputDir, false))
                 .doesNotThrowAnyException();
 
         assertThat(outputDir.resolve("report.json")).exists();
@@ -96,7 +96,7 @@ class DefaultReportExporterTest {
                 new DefaultHtmlReportGenerator(realScriptPath(), List.of("no-such-python-interpreter"));
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
-        exporter.export(projectScan(), emptyAnalysisResult(), outputDir, false);
+        exporter.export(projectScan(), emptyAnalysisResult(), List.of(), outputDir, false);
 
         assertThat(Files.isDirectory(outputDir)).isTrue();
         assertThat(outputDir.resolve("report.json")).exists();
@@ -113,7 +113,7 @@ class DefaultReportExporterTest {
                 new DefaultHtmlReportGenerator(realScriptPath(), DefaultHtmlReportGenerator.DEFAULT_PYTHON_COMMANDS);
         ReportExporter exporter = new DefaultReportExporter(new DefaultJsonExporter(), htmlReportGenerator);
 
-        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), outputDir, true))
+        assertThatCode(() -> exporter.export(projectScan(), emptyAnalysisResult(), List.of(), outputDir, true))
                 .doesNotThrowAnyException();
 
         assertThat(outputDir.resolve("report.json")).exists();
