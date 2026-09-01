@@ -24,7 +24,7 @@ class MetricsCalculatorTest {
                 .build();
 
         DependencyGraph graph = graphBuilder.build(scan);
-        AnalysisMetrics metrics = metricsCalculator.calculate(scan, graph, List.of(), List.of());
+        AnalysisMetrics metrics = metricsCalculator.calculate(scan, graph, List.of(), List.of(), List.of());
 
         assertThat(metrics.totalPackages()).isEqualTo(2);
         assertThat(metrics.totalClasses()).isEqualTo(3);
@@ -37,7 +37,7 @@ class MetricsCalculatorTest {
         List<Cycle> cycles = cycleDetector.detect(graph);
         List<LayerViolation> violations = layerViolationDetector.detect(graph);
 
-        AnalysisMetrics metrics = metricsCalculator.calculate(scan, graph, cycles, violations);
+        AnalysisMetrics metrics = metricsCalculator.calculate(scan, graph, cycles, violations, List.of());
 
         assertThat(metrics.cycleCount()).isEqualTo(cycles.size());
         assertThat(metrics.violationCount()).isEqualTo(violations.size());
@@ -52,7 +52,7 @@ class MetricsCalculatorTest {
                 .build();
 
         DependencyGraph graph = graphBuilder.build(scan);
-        AnalysisMetrics metrics = metricsCalculator.calculate(scan, graph, List.of(), List.of());
+        AnalysisMetrics metrics = metricsCalculator.calculate(scan, graph, List.of(), List.of(), List.of());
 
         assertThat(metrics.dependencyCounts())
                 .extracting(

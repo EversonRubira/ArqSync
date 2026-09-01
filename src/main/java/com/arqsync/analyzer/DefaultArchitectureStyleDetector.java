@@ -22,7 +22,14 @@ import java.util.Set;
 @Component
 public class DefaultArchitectureStyleDetector implements ArchitectureStyleDetector {
 
-    private static final ArchitectureStyle HEXAGONAL = new ArchitectureStyle(
+    /**
+     * Exposed (not private) so other Analyzer components that need to key
+     * behavior off "is this the Hexagonal style" — e.g.
+     * {@code DefaultPackageRoleClassifier} — can compare by identity/equality
+     * against the exact singleton this detector itself returns, instead of
+     * duplicating a name string to compare against.
+     */
+    public static final ArchitectureStyle HEXAGONAL = new ArchitectureStyle(
             "Arquitetura Hexagonal (Ports & Adapters)",
             "Os pacotes organizam o projeto em torno de portas e adaptadores: o núcleo da aplicação "
                     + "define interfaces (ports) que são implementadas por adaptadores externos (banco de "

@@ -57,7 +57,7 @@ def test_report_without_cycles_or_violations_renders_empty_state(tmp_path):
 
     html = gr.render_html(report_data)
 
-    assert "Nenhuma violação de camada detectada." in html
+    assert "Nenhuma violação detectada." in html
     assert "Nenhum ciclo de dependência detectado." in html
     assert "Arquitetura detectada: Não identificado" in html
     assert "Nenhum problema estrutural detectado" in html  # header status summary
@@ -240,6 +240,59 @@ def test_suggestions_view_violation_without_class_samples_has_no_impact_label():
     suggestions = gr.build_suggestions_view(violations_view, [])
 
     assert suggestions[0]["impact_label"] == ""
+
+
+def test_adapter_port_violations_view_is_a_straight_transcription():
+    adapter_port_violations = [
+        {"adapterPackage": {"value": "com.acme.adapter"}, "className": "BrokenAdapter"},
+    ]
+
+    view = gr.build_adapter_port_violations_view(adapter_port_violations)
+
+    assert view == [
+        {"kind": "adapter_port", "package": "com.acme.adapter", "class_name": "BrokenAdapter"},
+    ]
+
+
+def test_adapter_port_violations_view_defaults_to_empty_list():
+    assert gr.build_adapter_port_violations_view([]) == []
+
+
+def test_violations_view_items_are_tagged_with_layer_kind():
+    violations = [{
+        "from": {"value": "com.acme.controller"}, "to": {"value": "com.acme.repository"},
+        "fromLayer": "CONTROLLER", "toLayer": "REPOSITORY", "type": "LAYER_SKIP",
+        "explanation": "e", "suggestion": "s", "classSamples": [],
+    }]
+
+    view = gr.build_violations_view(violations)
+
+    assert view[0]["kind"] == "layer"
+
+
+def test_render_html_without_adapter_port_violations_key_is_backward_compatible():
+    report_data = load_fixture("with-cycle-and-violation.json")
+    assert "adapterPortViolations" not in report_data
+
+    html = gr.render_html(report_data)
+
+    assert "Adapter sem porta" not in html
+
+
+def test_render_html_combines_layer_and_adapter_port_violations_in_the_same_section(monkeypatch):
+    report_data = dict(load_fixture("with-cycle-and-violation.json"))
+    report_data["adapterPortViolations"] = [
+        {"adapterPackage": {"value": "com.acme.adapter"}, "className": "BrokenAdapter"},
+    ]
+    monkeypatch.setattr(gr, "build_pdf_diagram_svg", lambda *a, **k: "")
+
+    html = gr.render_html(report_data)
+
+    assert 'id="violations"' in html
+    assert "Adapter sem porta" in html
+    assert "com.acme.adapter.BrokenAdapter" in html
+    # the existing layer violation from the fixture is still rendered in the same section
+    assert "OrderController depende diretamente de OrderRepository" in html
 
 
 def test_ai_suggestions_view_is_a_straight_transcription_preserving_order():

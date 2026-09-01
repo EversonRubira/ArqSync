@@ -50,7 +50,7 @@ class DefaultGroqSuggestionServiceTest {
         ));
         return new AnalysisResult(
                 new DependencyGraph(Set.of(), List.of()),
-                cycles, violations,
+                cycles, violations, List.of(),
                 new AnalysisMetrics(2, 5, 1, 1, List.of()),
                 new ArchitectureStyle("Arquitetura em Camadas (Layered)", "descrição")
         );

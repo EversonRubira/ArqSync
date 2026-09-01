@@ -12,7 +12,9 @@ class DefaultDependencyAnalyzerTest {
             new DefaultCycleDetector(),
             new DefaultLayerViolationDetector(),
             new DefaultMetricsCalculator(),
-            new DefaultArchitectureStyleDetector()
+            new DefaultArchitectureStyleDetector(),
+            new DefaultPackageRoleClassifier(),
+            new DefaultAdapterPortViolationDetector()
     );
 
     @Test
@@ -40,6 +42,7 @@ class DefaultDependencyAnalyzerTest {
         assertThat(result.violations().get(0).type()).isEqualTo(ViolationType.LAYER_SKIP);
         assertThat(result.violations().get(0).from()).isEqualTo(new PackageName("com.acme.controller"));
         assertThat(result.violations().get(0).to()).isEqualTo(new PackageName("com.acme.repository"));
+        assertThat(result.adapterPortViolations()).isEmpty(); // not Hexagonal - the rule never runs
 
         assertThat(result.metrics().totalPackages()).isEqualTo(5);
         // com.acme.repository is only ever an import target in this fixture, so it exists
@@ -52,6 +55,23 @@ class DefaultDependencyAnalyzerTest {
     }
 
     @Test
+    void hexagonalProjectWithAnAdapterMissingAPortProducesAnAdapterPortViolation() {
+        ProjectScan scan = ProjectScanFixtures.builder()
+                .classImplementing("com.acme.port", "OrderPort", true)
+                .classImplementing("com.acme.adapter", "OrderAdapter", false, "OrderPort")
+                .classImplementing("com.acme.adapter", "BrokenAdapter", false)
+                .build();
+
+        AnalysisResult result = analyzer.analyze(scan);
+
+        assertThat(result.architectureStyle()).isEqualTo(DefaultArchitectureStyleDetector.HEXAGONAL);
+        assertThat(result.adapterPortViolations()).containsExactly(
+                new AdapterSemPortaViolation(new PackageName("com.acme.adapter"), "BrokenAdapter")
+        );
+        assertThat(result.metrics().violationCount()).isEqualTo(1);
+    }
+
+    @Test
     void emptyProjectProducesAnEmptyAnalysisResultWithoutException() {
         AnalysisResult result = analyzer.analyze(ProjectScanFixtures.empty());
 
@@ -59,6 +79,7 @@ class DefaultDependencyAnalyzerTest {
         assertThat(result.dependencyGraph().edges()).isEmpty();
         assertThat(result.cycles()).isEmpty();
         assertThat(result.violations()).isEmpty();
+        assertThat(result.adapterPortViolations()).isEmpty();
         assertThat(result.metrics().totalPackages()).isZero();
         assertThat(result.metrics().totalClasses()).isZero();
         assertThat(result.metrics().cycleCount()).isZero();

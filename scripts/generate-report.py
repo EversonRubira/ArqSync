@@ -221,6 +221,7 @@ def build_cycles_view(cycles: list) -> list:
 def build_violations_view(violations: list) -> list:
     return [
         {
+            "kind": "layer",
             "from": violation["from"]["value"],
             "to": violation["to"]["value"],
             "from_layer": violation["fromLayer"],
@@ -233,6 +234,24 @@ def build_violations_view(violations: list) -> list:
             "class_sample_count": len(violation.get("classSamples", [])),
         }
         for violation in violations
+    ]
+
+
+def build_adapter_port_violations_view(adapter_port_violations: list) -> list:
+    """Adapter-sem-porta violations (SPEC-adapter-port-violation.md) - a
+    distinct Java type from LayerViolation (no explanation/suggestion fields
+    of its own, only adapterPackage + className), presented in the same
+    "Violações" section via the `kind` discriminator. The explanatory/
+    suggestion text is static copy in the template (same pattern as each
+    section's own `section-intro` paragraph), not data-driven - the Java
+    model deliberately doesn't carry per-instance text for this violation."""
+    return [
+        {
+            "kind": "adapter_port",
+            "package": violation["adapterPackage"]["value"],
+            "class_name": violation["className"],
+        }
+        for violation in adapter_port_violations
     ]
 
 
@@ -450,6 +469,9 @@ def render_html(report_data: dict) -> str:
     raw_cycles = report_data.get("cycles", [])
     cycles_view = build_cycles_view(raw_cycles)
     violations_view = build_violations_view(report_data.get("violations", []))
+    adapter_port_violations_view = build_adapter_port_violations_view(
+        report_data.get("adapterPortViolations", [])
+    )
 
     return template.render(
         project_name=report_data.get("projectName", ""),
@@ -461,7 +483,11 @@ def render_html(report_data: dict) -> str:
         dependency_counts=build_dependency_counts_view(metrics),
         cycles=cycles_view,
         cycle_groups=build_cycle_groups(cycles_view, raw_cycles, dependency_graph),
-        violations=violations_view,
+        # violations_view (LayerViolation only) is kept separate for
+        # hotspots/suggestions below - those only understand LayerViolation's
+        # shape (from/to/class_sample_count). The template's "Violações"
+        # section shows both kinds together via each item's `kind` field.
+        violations=violations_view + adapter_port_violations_view,
         suggestions=build_suggestions_view(violations_view, cycles_view),
         ai_suggestions=build_ai_suggestions_view(report_data.get("aiSuggestions", [])),
         mermaid_diagram=build_mermaid_diagram(dependency_graph, raw_cycles),

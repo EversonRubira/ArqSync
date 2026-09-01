@@ -61,12 +61,13 @@ class DefaultJsonExporterTest {
         ArchitectureStyle architectureStyle = new ArchitectureStyle(
                 "Arquitetura em Camadas (Layered)", "Descrição de teste."
         );
-        return new AnalysisResult(graph, cycles, violations, metrics, architectureStyle);
+        return new AnalysisResult(graph, cycles, violations, List.of(), metrics, architectureStyle);
     }
 
     private AnalysisResult emptyAnalysisResult() {
         return new AnalysisResult(
                 new DependencyGraph(Set.of(), List.of()),
+                List.of(),
                 List.of(),
                 List.of(),
                 new AnalysisMetrics(0, 0, 0, 0, List.of()),
