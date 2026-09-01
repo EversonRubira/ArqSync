@@ -67,7 +67,18 @@ final class ProjectScanFixtures {
 
         /** Adds a class with an arbitrary, explicit list of raw import strings. */
         Builder classWithImports(String packageName, String className, String... imports) {
-            addClass(packageName, className, List.of(imports));
+            addClass(packageName, className, List.of(imports), List.of(), false);
+            return this;
+        }
+
+        /**
+         * Adds a class (or interface) declaring the given supertypes
+         * (simple names, as {@code implements}/{@code extends} would name
+         * them) — for adapter-sem-porta / package-role-classifier fixtures,
+         * where imports don't matter but supertypes and interface-ness do.
+         */
+        Builder classImplementing(String packageName, String className, boolean isInterface, String... superTypes) {
+            addClass(packageName, className, List.of(), List.of(superTypes), isInterface);
             return this;
         }
 
@@ -78,9 +89,14 @@ final class ProjectScanFixtures {
         }
 
         private void addClass(String packageName, String className, List<String> imports) {
+            addClass(packageName, className, imports, List.of(), false);
+        }
+
+        private void addClass(String packageName, String className, List<String> imports,
+                               List<String> superTypes, boolean isInterface) {
             classesByPackage
                     .computeIfAbsent(packageName, key -> new ArrayList<>())
-                    .add(new ClassScan(className, packageName, imports));
+                    .add(new ClassScan(className, packageName, imports, superTypes, isInterface));
         }
 
         ProjectScan build() {

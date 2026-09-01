@@ -152,4 +152,92 @@ class DefaultJavaParserAdapterTest {
         assertThat(outcome).isInstanceOf(ParseOutcome.Success.class);
         assertThat(((ParseOutcome.Success) outcome).classes()).hasSize(2);
     }
+
+    @Test
+    void capturesImplementsAndExtendsAsSuperTypes(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("OrderAdapter.java");
+        Files.writeString(file, """
+                package com.acme.adapter;
+
+                public class OrderAdapter extends BaseAdapter implements OrderPort, Closeable {
+                }
+                """);
+
+        ParseOutcome outcome = adapter.parse(file);
+
+        ClassScan classScan = ((ParseOutcome.Success) outcome).classes().get(0);
+        assertThat(classScan.superTypes()).containsExactlyInAnyOrder("BaseAdapter", "OrderPort", "Closeable");
+        assertThat(classScan.isInterface()).isFalse();
+    }
+
+    @Test
+    void classWithNoExtendsOrImplementsHasEmptySuperTypes(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("Plain.java");
+        Files.writeString(file, """
+                package com.acme;
+
+                public class Plain {
+                }
+                """);
+
+        ParseOutcome outcome = adapter.parse(file);
+
+        assertThat(((ParseOutcome.Success) outcome).classes().get(0).superTypes()).isEmpty();
+    }
+
+    @Test
+    void interfaceDeclarationIsFlaggedAsInterface(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("OrderPort.java");
+        Files.writeString(file, """
+                package com.acme.port;
+
+                public interface OrderPort {
+                }
+                """);
+
+        ParseOutcome outcome = adapter.parse(file);
+
+        ClassScan classScan = ((ParseOutcome.Success) outcome).classes().get(0);
+        assertThat(classScan.isInterface()).isTrue();
+        assertThat(classScan.superTypes()).isEmpty();
+    }
+
+    @Test
+    void interfaceExtendingAnotherInterfaceCapturesItAsASuperType(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("ExtendedPort.java");
+        Files.writeString(file, """
+                package com.acme.port;
+
+                public interface ExtendedPort extends OrderPort {
+                }
+                """);
+
+        ParseOutcome outcome = adapter.parse(file);
+
+        ClassScan classScan = ((ParseOutcome.Success) outcome).classes().get(0);
+        assertThat(classScan.isInterface()).isTrue();
+        assertThat(classScan.superTypes()).containsExactly("OrderPort");
+    }
+
+    @Test
+    void recordImplementingAnInterfaceIsNotFlaggedAsInterfaceButCapturesTheSuperType(@TempDir Path tempDir)
+            throws IOException {
+        Path file = tempDir.resolve("Modern2.java");
+        Files.writeString(file, """
+                package com.acme;
+
+                public interface Shape {
+                }
+
+                record Circle(double radius) implements Shape {
+                }
+                """);
+
+        ParseOutcome outcome = adapter.parse(file);
+
+        List<ClassScan> classes = ((ParseOutcome.Success) outcome).classes();
+        ClassScan circle = classes.stream().filter(c -> c.name().equals("Circle")).findFirst().orElseThrow();
+        assertThat(circle.isInterface()).isFalse();
+        assertThat(circle.superTypes()).containsExactly("Shape");
+    }
 }

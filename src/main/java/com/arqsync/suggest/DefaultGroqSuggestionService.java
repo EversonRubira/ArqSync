@@ -1,5 +1,6 @@
 package com.arqsync.suggest;
 
+import com.arqsync.analyzer.AdapterSemPortaViolation;
 import com.arqsync.analyzer.AnalysisResult;
 import com.arqsync.analyzer.Cycle;
 import com.arqsync.analyzer.LayerViolation;
@@ -59,13 +60,16 @@ public class DefaultGroqSuggestionService implements GroqSuggestionService {
             Você é um consultor de arquitetura de software especializado em projetos Java. \
             Você recebe um resumo estruturado (JSON) da análise arquitetural de um projeto - \
             estilo arquitetural detectado, ciclos de dependência entre pacotes, violações de \
-            camada e métricas gerais. Nenhum código-fonte é enviado a você.
+            camada, violações de adapter sem porta (Arquitetura Hexagonal) e métricas gerais. \
+            Nenhum código-fonte é enviado a você.
 
             Com base apenas nesse resumo, sugira:
             1. Melhorias arquiteturais (ex.: migrar de um estilo para outro mais adequado)
             2. Como quebrar cada ciclo de dependência listado
             3. Como corrigir cada violação de camada listada
-            4. Um exemplo de código ilustrando a refatoração sugerida, quando fizer sentido
+            4. Como corrigir cada violação de adapter sem porta listada (definir uma \
+            interface no núcleo do domínio e fazer o adapter implementá-la)
+            5. Um exemplo de código ilustrando a refatoração sugerida, quando fizer sentido
 
             Você NUNCA deve executar nem aplicar nenhuma refatoração - apenas sugerir. Suas \
             sugestões são conselhos para um humano avaliar e aplicar manualmente.
@@ -181,10 +185,11 @@ public class DefaultGroqSuggestionService implements GroqSuggestionService {
 
     /**
      * Builds the "resumo estruturado" sent as context: architectural style,
-     * headline metrics, and up to {@value #MAX_ITEMS_PER_LIST} cycles and
-     * violations each — no class names, no source code. Bounding the list
-     * sizes keeps the prompt (and token cost) predictable regardless of
-     * project size.
+     * headline metrics, and up to {@value #MAX_ITEMS_PER_LIST} cycles,
+     * layer violations and adapter-sem-porta violations each — no class
+     * names beyond the offending adapter's own (still no source code).
+     * Bounding the list sizes keeps the prompt (and token cost) predictable
+     * regardless of project size.
      */
     private String buildStructuredSummary(AnalysisResult analysisResult) {
         ObjectNode summary = objectMapper.createObjectNode();
@@ -213,6 +218,13 @@ public class DefaultGroqSuggestionService implements GroqSuggestionService {
             v.put("fromLayer", violation.fromLayer().name());
             v.put("toLayer", violation.toLayer().name());
             v.put("type", violation.type().name());
+        }
+
+        ArrayNode adapterPortViolationsNode = summary.putArray("adapterPortViolations");
+        for (AdapterSemPortaViolation violation : capped(analysisResult.adapterPortViolations())) {
+            ObjectNode v = adapterPortViolationsNode.addObject();
+            v.put("adapterPackage", violation.adapterPackage().value());
+            v.put("className", violation.className());
         }
 
         try {

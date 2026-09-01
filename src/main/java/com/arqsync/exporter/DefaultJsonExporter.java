@@ -46,6 +46,7 @@ public class DefaultJsonExporter implements JsonExporter {
                 analysisResult.metrics(),
                 analysisResult.cycles(),
                 analysisResult.violations(),
+                analysisResult.adapterPortViolations(),
                 analysisResult.dependencyGraph(),
                 analysisResult.architectureStyle(),
                 aiSuggestions

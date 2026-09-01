@@ -1,5 +1,6 @@
 package com.arqsync.suggest;
 
+import com.arqsync.analyzer.AdapterSemPortaViolation;
 import com.arqsync.analyzer.AnalysisMetrics;
 import com.arqsync.analyzer.AnalysisResult;
 import com.arqsync.analyzer.ArchitectureStyle;
@@ -50,9 +51,21 @@ class DefaultGroqSuggestionServiceTest {
         ));
         return new AnalysisResult(
                 new DependencyGraph(Set.of(), List.of()),
-                cycles, violations,
+                cycles, violations, List.of(),
                 new AnalysisMetrics(2, 5, 1, 1, List.of()),
                 new ArchitectureStyle("Arquitetura em Camadas (Layered)", "descrição")
+        );
+    }
+
+    private AnalysisResult analysisResultWithAdapterPortViolation() {
+        List<AdapterSemPortaViolation> adapterPortViolations = List.of(
+                new AdapterSemPortaViolation(new PackageName("com.acme.adapter"), "BrokenAdapter")
+        );
+        return new AnalysisResult(
+                new DependencyGraph(Set.of(), List.of()),
+                List.of(), List.of(), adapterPortViolations,
+                new AnalysisMetrics(2, 5, 0, 1, List.of()),
+                new ArchitectureStyle("Arquitetura Hexagonal (Ports & Adapters)", "descrição")
         );
     }
 
@@ -225,6 +238,36 @@ class DefaultGroqSuggestionServiceTest {
         List<HttpRequest> requests = captor.getAllValues();
         assertThat(bodyOf(requests.get(0))).contains("\"model\":\"custom-model\"");
         assertThat(bodyOf(requests.get(1))).contains("\"model\":\"" + DefaultGroqSuggestionService.DEFAULT_MODEL + "\"");
+    }
+
+    @Test
+    void requestBodyIncludesAdapterPortViolationsWhenPresentInTheAnalysisResult() throws Exception {
+        HttpClient httpClient = mock(HttpClient.class);
+        doReturn(mockResponse(200, chatCompletionBody("{\"suggestions\":[]}"))).when(httpClient).send(any(), any());
+
+        GroqSuggestionService service = new DefaultGroqSuggestionService(httpClient, objectMapper, "key", null);
+        service.suggest(projectScan(), analysisResultWithAdapterPortViolation());
+
+        var captor = org.mockito.ArgumentCaptor.forClass(HttpRequest.class);
+        verify(httpClient).send(captor.capture(), any());
+        String body = bodyOf(captor.getValue());
+        assertThat(body).contains("adapterPortViolations");
+        assertThat(body).contains("com.acme.adapter");
+        assertThat(body).contains("BrokenAdapter");
+    }
+
+    @Test
+    void requestBodyOmitsAdapterPortViolationEntriesWhenTheListIsEmpty() throws Exception {
+        HttpClient httpClient = mock(HttpClient.class);
+        doReturn(mockResponse(200, chatCompletionBody("{\"suggestions\":[]}"))).when(httpClient).send(any(), any());
+
+        GroqSuggestionService service = new DefaultGroqSuggestionService(httpClient, objectMapper, "key", null);
+        service.suggest(projectScan(), analysisResultWithCycleAndViolation());
+
+        var captor = org.mockito.ArgumentCaptor.forClass(HttpRequest.class);
+        verify(httpClient).send(captor.capture(), any());
+        String body = bodyOf(captor.getValue());
+        assertThat(body).contains("\\\"adapterPortViolations\\\":[]");
     }
 
     private String bodyOf(HttpRequest request) {

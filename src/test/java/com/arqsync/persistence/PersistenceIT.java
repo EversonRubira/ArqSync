@@ -65,6 +65,7 @@ class PersistenceIT {
                 new DependencyGraph(Set.of(), List.of()),
                 List.of(),
                 List.of(),
+                List.of(),
                 new AnalysisMetrics(0, 0, 0, 0, List.of()),
                 new ArchitectureStyle("Não identificado", "")
         );

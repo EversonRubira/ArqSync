@@ -650,15 +650,35 @@
     </section>
 
     <section id="violations">
-        <h2>Violações de camada <span class="count-pill">{{ violations | length }}</span></h2>
+        <h2>Violações <span class="count-pill">{{ violations | length }}</span></h2>
         {% if violations %}
         <p class="section-intro">
             Uma violação de camada acontece quando um pacote depende de outro fora da ordem
             esperada (<code>controller → service → repository → domain</code>) — pulando uma
-            camada intermediária, ou invertendo o sentido da dependência.
+            camada intermediária, ou invertendo o sentido da dependência. Em projetos de
+            Arquitetura Hexagonal, um adapter sem porta é uma classe de adapter que não
+            implementa nenhuma interface do núcleo do domínio.
         </p>
         <div class="card-list">
             {% for violation in violations %}
+            {% if violation.kind == 'adapter_port' %}
+            <div class="card violation">
+                <span class="badge violation-skip">Adapter sem porta</span>
+                <div class="card-path">{{ violation.package }}.{{ violation.class_name }}</div>
+                <p class="card-explanation">
+                    Esta classe está em um pacote classificado como adapter (Arquitetura
+                    Hexagonal), mas não implementa nenhuma interface (porta) declarada em um
+                    pacote do núcleo do domínio.
+                </p>
+                <p class="card-suggestion">
+                    <span class="suggestion-label">Sugestão de correção:</span> Defina uma
+                    interface no pacote do núcleo (ex.: <code>port</code>/<code>ports</code>)
+                    representando o contrato que este adapter deveria implementar, e faça esta
+                    classe implementá-la — mantendo o núcleo independente de detalhes de
+                    infraestrutura.
+                </p>
+            </div>
+            {% else %}
             <div class="card violation">
                 <span class="badge {{ 'violation-skip' if violation.type == 'LAYER_SKIP' else 'violation-inversion' }}">
                     {{ 'Camada pulada' if violation.type == 'LAYER_SKIP' else 'Inversão de camada' }}
@@ -667,10 +687,11 @@
                 <p class="card-explanation">{{ violation.explanation }}</p>
                 <p class="card-suggestion"><span class="suggestion-label">Sugestão de correção:</span> {{ violation.suggestion }}</p>
             </div>
+            {% endif %}
             {% endfor %}
         </div>
         {% else %}
-        <p class="empty-state">Nenhuma violação de camada detectada.</p>
+        <p class="empty-state">Nenhuma violação detectada.</p>
         {% endif %}
     </section>
 

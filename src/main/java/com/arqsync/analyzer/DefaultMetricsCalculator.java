@@ -14,7 +14,8 @@ public class DefaultMetricsCalculator implements MetricsCalculator {
             ProjectScan projectScan,
             DependencyGraph graph,
             List<Cycle> cycles,
-            List<LayerViolation> violations
+            List<LayerViolation> violations,
+            List<AdapterSemPortaViolation> adapterPortViolations
     ) {
         int totalPackages = projectScan.packages().size();
         int totalClasses = projectScan.packages().stream()
@@ -34,7 +35,7 @@ public class DefaultMetricsCalculator implements MetricsCalculator {
                 totalPackages,
                 totalClasses,
                 cycles.size(),
-                violations.size(),
+                violations.size() + adapterPortViolations.size(),
                 dependencyCounts
         );
     }

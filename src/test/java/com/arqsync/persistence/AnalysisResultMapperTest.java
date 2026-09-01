@@ -23,7 +23,7 @@ class AnalysisResultMapperTest {
 
     private ProjectScan projectScanWith(String rootPath, String packageName, int classCount) {
         List<ClassScan> classes = java.util.stream.IntStream.range(0, classCount)
-                .mapToObj(i -> new ClassScan("Class" + i, packageName, List.of()))
+                .mapToObj(i -> new ClassScan("Class" + i, packageName, List.of(), List.of(), false))
                 .toList();
         return new ProjectScan(rootPath, List.of(new PackageScan(packageName, classes)), List.of());
     }
@@ -39,7 +39,7 @@ class AnalysisResultMapperTest {
         AnalysisMetrics metrics = new AnalysisMetrics(
                 totalPackages, totalClasses, cycles.size(), violations.size(), dependencyCounts
         );
-        return new AnalysisResult(graph, cycles, violations, metrics, new ArchitectureStyle("Não identificado", ""));
+        return new AnalysisResult(graph, cycles, violations, List.of(), metrics, new ArchitectureStyle("Não identificado", ""));
     }
 
     @Test
