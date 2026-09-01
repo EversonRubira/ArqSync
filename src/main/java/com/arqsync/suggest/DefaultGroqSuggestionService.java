@@ -49,7 +49,7 @@ public class DefaultGroqSuggestionService implements GroqSuggestionService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultGroqSuggestionService.class);
 
-    static final String DEFAULT_MODEL = "llama3.1-70b";
+    static final String DEFAULT_MODEL = "llama-3.3-70b-versatile";
     private static final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
     private static final int MAX_ITEMS_PER_LIST = 15;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
