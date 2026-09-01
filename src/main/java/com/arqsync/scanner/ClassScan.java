@@ -11,7 +11,7 @@ import java.util.List;
  * that resolution is the Analyzer's responsibility. {@code isInterface} is {@code true}
  * only for an actual {@code interface} declaration (not class/enum/record/annotation) —
  * needed to tell a "porta" (interface) apart from an adapter class that happens to
- * extend/implement something (same adendo, 5).
+ * extend/implement something (same adendo, 2.1).
  */
 public record ClassScan(String name, String packageName, List<String> imports,
                          List<String> superTypes, boolean isInterface) {
