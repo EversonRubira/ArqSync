@@ -101,5 +101,25 @@ adapter). As heurísticas de Clean Architecture e DDD, e a categoria `Layer.CROS
 (2.2 acima, usada só pelo diagrama Layered), **não têm nenhum consumidor ainda** e
 foram deixadas de fora por Hashimoto — mesmo critério já usado em várias outras specs
 deste projeto ("não construir sem necessidade demonstrada"). `PackageRoleClassifier`
-foi desenhado como uma interface própria, extensível, para que Clean/DDD/CROSS_CUTTING
-sejam adicionados sem quebrar consumidores existentes quando Spec B for implementada.
+foi desenhado como uma interface própria — sua assinatura (`classify(DependencyGraph,
+ArchitectureStyle)`) já é genérica o bastante e não deve precisar mudar quando
+Clean/DDD forem adicionados — mas a implementação atual não é uma estratégia por
+estilo; ver seção 6 sobre o que isso significa na prática para quem for implementar
+Spec B.
+
+## 6. Riscos / Nota Técnica: `DefaultPackageRoleClassifier` é uma classe única, não strategy-per-style
+
+`DefaultPackageRoleClassifier` hoje é uma classe única com `if/else` (`classify()`
+decide `hexagonal ? classifyHexagonal(pkg) : UNKNOWN`), não um `strategy` com uma
+implementação por estilo. Adicionar Clean/DDD vai exigir editar `classify()`/
+`fromSegment()` diretamente, não só plugar uma implementação nova — uma segunda
+`@Component` implementando `PackageRoleClassifier` causaria
+`NoUniqueBeanDefinitionException` na injeção de `DefaultDependencyAnalyzer` (que
+espera um único bean desse tipo), a menos que se introduza `@Qualifier`, uma lista de
+classificadores com um dispatcher, ou se refatore para composição nesse momento.
+
+Decisão consciente por Hashimoto — três implementações de estilo para dois
+consumidores reais (Spec A só usa Hexagonal) seria complexidade antecipada sem
+necessidade demonstrada — documentada aqui para quem for implementar Spec B não
+presumir que é só "adicionar uma classe nova": o ponto de decisão real está dentro do
+método `classify()` existente.
