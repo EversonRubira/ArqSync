@@ -17,6 +17,8 @@ jobs:
           java-version: '21'
           cache: maven
       - run: ./mvnw -B test
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
   python-tests:
     name: Python tests (generate-report.py)
