@@ -11,8 +11,12 @@ import com.arqsync.analyzer.LayerViolation;
 import com.arqsync.analyzer.PackageName;
 import com.arqsync.analyzer.ViolationType;
 import com.arqsync.scanner.ProjectScan;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
@@ -180,6 +184,60 @@ class DefaultGroqSuggestionServiceTest {
 
         assertThat(result).isEmpty();
         verify(httpClient, times(2)).send(any(), any());
+    }
+
+    @Test
+    void nonOkStatusLogsTheGroqErrorMessageNotJustTheStatusCode() throws Exception {
+        HttpClient httpClient = mock(HttpClient.class);
+        String errorBody = "{\"error\":{\"message\":\"The model `llama-3.3-70b-versatile` does not exist "
+                + "or you do not have access to it.\",\"type\":\"invalid_request_error\",\"code\":\"model_not_found\"}}";
+        doReturn(mockResponse(404, errorBody)).when(httpClient).send(any(), any());
+
+        ListAppender<ILoggingEvent> appender = attachLogAppender();
+        try {
+            GroqSuggestionService service = new DefaultGroqSuggestionService(httpClient, objectMapper, "key", null);
+            List<AiSuggestion> result = service.suggest(projectScan(), analysisResultWithCycleAndViolation());
+
+            assertThat(result).isEmpty();
+            assertThat(appender.list)
+                    .extracting(ILoggingEvent::getFormattedMessage)
+                    .anyMatch(message -> message.contains("model_not_found")
+                            && message.contains("does not exist or you do not have access to it"));
+        } finally {
+            detachLogAppender(appender);
+        }
+    }
+
+    @Test
+    void transportExceptionLogsTheRealExceptionNotJustAGenericMessage() throws Exception {
+        HttpClient httpClient = mock(HttpClient.class);
+        doThrow(new java.net.UnknownHostException("api.groq.com")).when(httpClient).send(any(), any());
+
+        ListAppender<ILoggingEvent> appender = attachLogAppender();
+        try {
+            GroqSuggestionService service = new DefaultGroqSuggestionService(httpClient, objectMapper, "key", null);
+            List<AiSuggestion> result = service.suggest(projectScan(), analysisResultWithCycleAndViolation());
+
+            assertThat(result).isEmpty();
+            assertThat(appender.list)
+                    .extracting(ILoggingEvent::getFormattedMessage)
+                    .anyMatch(message -> message.contains("UnknownHostException") && message.contains("api.groq.com"));
+        } finally {
+            detachLogAppender(appender);
+        }
+    }
+
+    private ListAppender<ILoggingEvent> attachLogAppender() {
+        Logger logger = (Logger) LoggerFactory.getLogger(DefaultGroqSuggestionService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
+    }
+
+    private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+        Logger logger = (Logger) LoggerFactory.getLogger(DefaultGroqSuggestionService.class);
+        logger.detachAppender(appender);
     }
 
     @Test
