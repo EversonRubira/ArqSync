@@ -49,7 +49,7 @@ public class DefaultGroqSuggestionService implements GroqSuggestionService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultGroqSuggestionService.class);
 
-    static final String DEFAULT_MODEL = "llama-3.3-70b-versatile";
+    static final String DEFAULT_MODEL = "openai/gpt-oss-120b";
     private static final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
     private static final int MAX_ITEMS_PER_LIST = 15;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
@@ -132,9 +132,14 @@ public class DefaultGroqSuggestionService implements GroqSuggestionService {
                     log.error("[ERROR] GROQ_API_KEY inválida. Verifique sua configuração.");
                     return null;
                 }
-                log.debug("Groq API respondeu com status {} (tentativa {}/2)", response.statusCode(), attempt);
+                log.warn("Groq API respondeu com status {} (tentativa {}/2): {}",
+                        response.statusCode(), attempt, extractErrorMessage(response.body()));
             } catch (IOException e) {
-                log.debug("Falha ao chamar a API Groq (tentativa {}/2): {}", attempt, e.getMessage());
+                // e is deliberately passed twice: SLF4J always strips a trailing Throwable
+                // argument out of message substitution (regardless of placeholder count) to
+                // attach it as the log event's stack trace, so a second, string-typed copy is
+                // needed to actually get the exception type/message into the message text.
+                log.warn("Falha ao chamar a API Groq (tentativa {}/2): {}", attempt, e.toString(), e);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("[WARN] Groq API indisponível, prosseguindo sem sugestões (interrompido)");
@@ -147,6 +152,29 @@ public class DefaultGroqSuggestionService implements GroqSuggestionService {
         }
         log.warn("[WARN] Groq API indisponível, prosseguindo sem sugestões");
         return null;
+    }
+
+    /**
+     * Pulls {@code error.code}/{@code error.message} out of a Groq error body
+     * (e.g. {@code model_not_found}, {@code invalid_api_key}) so the log
+     * shows the real cause instead of just a status code. Falls back to a
+     * truncated raw body when it isn't the expected shape.
+     */
+    private String extractErrorMessage(String body) {
+        if (body == null || body.isBlank()) {
+            return "(corpo vazio)";
+        }
+        try {
+            JsonNode error = objectMapper.readTree(body).path("error");
+            String code = error.path("code").asText(null);
+            String message = error.path("message").asText(null);
+            if (message != null && !message.isBlank()) {
+                return (code != null && !code.isBlank()) ? code + ": " + message : message;
+            }
+        } catch (IOException e) {
+            // Body isn't JSON - fall through to the raw (truncated) body below.
+        }
+        return body.length() > 200 ? body.substring(0, 200) + "..." : body;
     }
 
     private void sleepBackoff() {
