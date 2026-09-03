@@ -78,7 +78,10 @@ public class DefaultGroqSuggestionService implements GroqSuggestionService {
             neste formato:
             {"suggestions": [{"type": "CYCLE_BREAK|LAYER_VIOLATION|STYLE_MIGRATION|GENERAL", \
             "title": "título curto", "description": "explicação da sugestão", \
-            "codeExample": "trecho de código ou null se não aplicável"}]}""";
+            "codeExample": "trecho de código"}]}
+            Quando não fizer sentido incluir um exemplo de código, OMITA o campo \
+            "codeExample" inteiramente (não inclua a chave) - nunca escreva a palavra \
+            null como texto dentro de aspas.""";
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;

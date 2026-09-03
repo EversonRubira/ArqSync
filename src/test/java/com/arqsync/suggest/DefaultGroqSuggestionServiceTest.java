@@ -136,6 +136,24 @@ class DefaultGroqSuggestionServiceTest {
     }
 
     @Test
+    void codeExampleReturnedAsTheLiteralStringNullIsParsedAsNoExample() throws Exception {
+        // Reproduces a real response observed from the Groq API: the model
+        // returned the literal text "null" as the codeExample value instead
+        // of the JSON null literal or omitting the field.
+        HttpClient httpClient = mock(HttpClient.class);
+        String content = "{\"suggestions\":["
+                + "{\"type\":\"CYCLE_BREAK\",\"title\":\"t\",\"description\":\"d\",\"codeExample\":\"null\"}"
+                + "]}";
+        doReturn(mockResponse(200, chatCompletionBody(content))).when(httpClient).send(any(), any());
+
+        GroqSuggestionService service = new DefaultGroqSuggestionService(httpClient, objectMapper, "key", null);
+        List<AiSuggestion> result = service.suggest(projectScan(), analysisResultWithCycleAndViolation());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).codeExample()).isNull();
+    }
+
+    @Test
     void invalidApiKeyDoesNotRetryAndReturnsEmptyList() throws Exception {
         HttpClient httpClient = mock(HttpClient.class);
         doReturn(mockResponse(401, "")).when(httpClient).send(any(), any());

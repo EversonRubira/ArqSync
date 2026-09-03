@@ -14,6 +14,21 @@ public record AiSuggestion(
 ) {
 
     public AiSuggestion {
-        codeExample = (codeExample == null || codeExample.isBlank()) ? null : codeExample;
+        codeExample = normalize(codeExample);
+    }
+
+    /**
+     * Some models return the literal text {@code "null"} (a real, non-empty
+     * JSON string) instead of the JSON {@code null} value or omitting the
+     * field, despite the system prompt asking them not to — the schema
+     * example in the prompt necessarily has to spell the word "null"
+     * somewhere, and the model sometimes echoes it back verbatim as a
+     * string value. Treated the same as an absent example either way.
+     */
+    private static String normalize(String codeExample) {
+        if (codeExample == null || codeExample.isBlank()) {
+            return null;
+        }
+        return codeExample.trim().equalsIgnoreCase("null") ? null : codeExample;
     }
 }
