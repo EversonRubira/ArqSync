@@ -240,16 +240,23 @@ def build_violations_view(violations: list) -> list:
 def build_adapter_port_violations_view(adapter_port_violations: list) -> list:
     """Adapter-sem-porta violations (SPEC-adapter-port-violation.md) - a
     distinct Java type from LayerViolation (no explanation/suggestion fields
-    of its own, only adapterPackage + className), presented in the same
-    "Violações" section via the `kind` discriminator. The explanatory/
+    of its own, only adapterPackage + className + role), presented in the
+    same "Violações" section via the `kind` discriminator. The explanatory/
     suggestion text is static copy in the template (same pattern as each
     section's own `section-intro` paragraph), not data-driven - the Java
-    model deliberately doesn't carry per-instance text for this violation."""
+    model deliberately doesn't carry per-instance text for this violation.
+    `role` (DRIVING_ADAPTER/DRIVEN_ADAPTER) picks which static copy the
+    template shows (ADENDO-SPEC-analyzer-adapter-porta-direcao.md, 3) -
+    `.get` rather than a direct key access keeps old report.json files
+    without the field rendering the old, direction-agnostic copy instead of
+    raising (same backward-compatibility stance as the missing-key case
+    below)."""
     return [
         {
             "kind": "adapter_port",
             "package": violation["adapterPackage"]["value"],
             "class_name": violation["className"],
+            "role": violation.get("role"),
         }
         for violation in adapter_port_violations
     ]
