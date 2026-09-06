@@ -240,4 +240,87 @@ class DefaultJavaParserAdapterTest {
         assertThat(circle.isInterface()).isFalse();
         assertThat(circle.superTypes()).containsExactly("Shape");
     }
+
+    @Test
+    void capturesInstanceFieldTypesForConstructorInjectionStyle(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("ProjectController.java");
+        Files.writeString(file, """
+                package com.acme.adapters.in.web;
+
+                public class ProjectController {
+                    private final CreateProjectUseCase createProject;
+                    private final ListProjectsUseCase listProjects;
+
+                    public ProjectController(CreateProjectUseCase createProject, ListProjectsUseCase listProjects) {
+                        this.createProject = createProject;
+                        this.listProjects = listProjects;
+                    }
+                }
+                """);
+
+        ParseOutcome outcome = adapter.parse(file);
+
+        ClassScan classScan = ((ParseOutcome.Success) outcome).classes().get(0);
+        assertThat(classScan.fieldTypes()).containsExactlyInAnyOrder("CreateProjectUseCase", "ListProjectsUseCase");
+    }
+
+    @Test
+    void capturesInstanceFieldTypesEvenWithoutAnExplicitConstructor(@TempDir Path tempDir) throws IOException {
+        // Real pattern found via dogfooding: Lombok's @RequiredArgsConstructor
+        // generates the constructor via annotation processing, so it never
+        // appears as an AST node - only the field declaration does
+        // (ADENDO-SPEC-analyzer-adapter-porta-direcao.md, 2.5). This test parses a
+        // class with no constructor at all, simulating what the Scanner alone
+        // (no annotation processing) sees for a Lombok-based class.
+        Path file = tempDir.resolve("DevUserController.java");
+        Files.writeString(file, """
+                package com.acme.adapters.in.web;
+
+                public class DevUserController {
+                    private final UserRepositoryPort users;
+                }
+                """);
+
+        ParseOutcome outcome = adapter.parse(file);
+
+        ClassScan classScan = ((ParseOutcome.Success) outcome).classes().get(0);
+        assertThat(classScan.fieldTypes()).containsExactly("UserRepositoryPort");
+    }
+
+    @Test
+    void ignoresStaticFieldsWhenCapturingFieldTypes(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("WithLogger.java");
+        Files.writeString(file, """
+                package com.acme;
+
+                public class WithLogger {
+                    private static final Logger LOG = null;
+                    private final OrderPort port;
+
+                    public WithLogger(OrderPort port) {
+                        this.port = port;
+                    }
+                }
+                """);
+
+        ParseOutcome outcome = adapter.parse(file);
+
+        ClassScan classScan = ((ParseOutcome.Success) outcome).classes().get(0);
+        assertThat(classScan.fieldTypes()).containsExactly("OrderPort");
+    }
+
+    @Test
+    void classWithNoFieldsHasEmptyFieldTypes(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("Plain2.java");
+        Files.writeString(file, """
+                package com.acme;
+
+                public class Plain2 {
+                }
+                """);
+
+        ParseOutcome outcome = adapter.parse(file);
+
+        assertThat(((ParseOutcome.Success) outcome).classes().get(0).fieldTypes()).isEmpty();
+    }
 }

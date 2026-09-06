@@ -63,7 +63,8 @@ class DefaultGroqSuggestionServiceTest {
 
     private AnalysisResult analysisResultWithAdapterPortViolation() {
         List<AdapterSemPortaViolation> adapterPortViolations = List.of(
-                new AdapterSemPortaViolation(new PackageName("com.acme.adapter"), "BrokenAdapter")
+                new AdapterSemPortaViolation(new PackageName("com.acme.adapter"), "BrokenAdapter",
+                        com.arqsync.analyzer.PackageRole.DRIVEN_ADAPTER)
         );
         return new AnalysisResult(
                 new DependencyGraph(Set.of(), List.of()),

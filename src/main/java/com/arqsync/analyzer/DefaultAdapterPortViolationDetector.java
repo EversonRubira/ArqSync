@@ -12,17 +12,29 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Only runs for the Hexagonal style (SPEC-adapter-port-violation.md, 2.1). For
- * every class in a package classified {@link PackageRole#ADAPTER}, checks
- * whether any of its {@code superTypes} (simple names) matches an interface
- * declared in a package classified {@link PackageRole#CORE} — a "port". No
- * match means no port, which is the violation (2.3).
+ * Only runs for the Hexagonal style (SPEC-adapter-port-violation.md, 2.1). The
+ * obligation checked depends on the adapter's direction
+ * (ADENDO-SPEC-analyzer-adapter-porta-direcao.md, 2.4):
  *
- * <p>A supertype naming an external type (e.g. {@code Serializable}) can
- * never match: {@code corePortNames} below is built purely from interfaces
- * actually scanned in this project's core packages, so external names are
- * never candidates in the first place — no separate "is this internal"
- * check is needed to honor 2.3's "ignore external supertypes" rule.
+ * <ul>
+ *   <li>{@link PackageRole#DRIVEN_ADAPTER} (adapter de saída): must <b>implement</b> an
+ *       output port — some {@code superTypes} must match an interface declared in a
+ *       package classified {@link PackageRole#OUTPUT_PORT}. Unchanged from the original
+ *       Spec A rule.</li>
+ *   <li>{@link PackageRole#DRIVING_ADAPTER} (adapter de entrada): must <b>depend on</b>
+ *       an input port — some {@code fieldTypes} must match an interface declared in a
+ *       package classified {@link PackageRole#INPUT_PORT}. A driving adapter is not
+ *       expected to implement anything; the application core does that
+ *       (e.g. {@code CreateProjectService implements CreateProjectUseCase}).</li>
+ *   <li>{@link PackageRole#ADAPTER} (direction couldn't be determined): the rule
+ *       doesn't run for that class — same "not applicable is not a miss" philosophy as
+ *       {@link PackageRole#UNKNOWN}.</li>
+ * </ul>
+ *
+ * <p>A supertype/field type naming an external type (e.g. {@code Serializable}) can
+ * never match: {@code outputPortNames}/{@code inputPortNames} below are built purely
+ * from interfaces actually scanned in this project's port packages, so external names
+ * are never candidates in the first place.
  */
 @Component
 public class DefaultAdapterPortViolationDetector implements AdapterPortViolationDetector {
@@ -34,29 +46,35 @@ public class DefaultAdapterPortViolationDetector implements AdapterPortViolation
             return List.of();
         }
 
-        Set<String> corePortNames = corePortInterfaceNames(projectScan, packageRoles);
+        Set<String> outputPortNames = portInterfaceNames(projectScan, packageRoles, PackageRole.OUTPUT_PORT);
+        Set<String> inputPortNames = portInterfaceNames(projectScan, packageRoles, PackageRole.INPUT_PORT);
 
         List<AdapterSemPortaViolation> violations = new ArrayList<>();
         for (PackageScan pkg : projectScan.packages()) {
             PackageName packageName = new PackageName(pkg.name());
-            if (packageRoles.getOrDefault(packageName, PackageRole.UNKNOWN) != PackageRole.ADAPTER) {
-                continue;
-            }
+            PackageRole role = packageRoles.getOrDefault(packageName, PackageRole.UNKNOWN);
+
             for (ClassScan cls : pkg.classes()) {
-                boolean hasPort = cls.superTypes().stream().anyMatch(corePortNames::contains);
-                if (!hasPort) {
-                    violations.add(new AdapterSemPortaViolation(packageName, cls.name()));
+                if (role == PackageRole.DRIVEN_ADAPTER) {
+                    if (cls.superTypes().stream().noneMatch(outputPortNames::contains)) {
+                        violations.add(new AdapterSemPortaViolation(packageName, cls.name(), role));
+                    }
+                } else if (role == PackageRole.DRIVING_ADAPTER) {
+                    if (cls.fieldTypes().stream().noneMatch(inputPortNames::contains)) {
+                        violations.add(new AdapterSemPortaViolation(packageName, cls.name(), role));
+                    }
                 }
             }
         }
         return violations;
     }
 
-    private Set<String> corePortInterfaceNames(ProjectScan projectScan, Map<PackageName, PackageRole> packageRoles) {
+    private Set<String> portInterfaceNames(
+            ProjectScan projectScan, Map<PackageName, PackageRole> packageRoles, PackageRole portRole) {
         Set<String> names = new HashSet<>();
         for (PackageScan pkg : projectScan.packages()) {
             PackageName packageName = new PackageName(pkg.name());
-            if (packageRoles.getOrDefault(packageName, PackageRole.UNKNOWN) != PackageRole.CORE) {
+            if (packageRoles.getOrDefault(packageName, PackageRole.UNKNOWN) != portRole) {
                 continue;
             }
             for (ClassScan cls : pkg.classes()) {

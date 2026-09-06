@@ -23,7 +23,7 @@ class AnalysisResultMapperTest {
 
     private ProjectScan projectScanWith(String rootPath, String packageName, int classCount) {
         List<ClassScan> classes = java.util.stream.IntStream.range(0, classCount)
-                .mapToObj(i -> new ClassScan("Class" + i, packageName, List.of(), List.of(), false))
+                .mapToObj(i -> new ClassScan("Class" + i, packageName, List.of(), List.of(), false, List.of()))
                 .toList();
         return new ProjectScan(rootPath, List.of(new PackageScan(packageName, classes)), List.of());
     }

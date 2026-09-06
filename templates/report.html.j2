@@ -656,8 +656,9 @@
             Uma violação de camada acontece quando um pacote depende de outro fora da ordem
             esperada (<code>controller → service → repository → domain</code>) — pulando uma
             camada intermediária, ou invertendo o sentido da dependência. Em projetos de
-            Arquitetura Hexagonal, um adapter sem porta é uma classe de adapter que não
-            implementa nenhuma interface do núcleo do domínio.
+            Arquitetura Hexagonal, um adapter sem porta é um adapter de saída que não
+            implementa nenhuma porta do núcleo, ou um adapter de entrada que não depende de
+            nenhuma.
         </p>
         <div class="card-list">
             {% for violation in violations %}
@@ -665,6 +666,33 @@
             <div class="card violation">
                 <span class="badge violation-skip">Adapter sem porta</span>
                 <div class="card-path">{{ violation.package }}.{{ violation.class_name }}</div>
+                {% if violation.role == 'DRIVING_ADAPTER' %}
+                <p class="card-explanation">
+                    Esta classe está em um pacote classificado como adapter de entrada (driving
+                    adapter, Arquitetura Hexagonal), mas não depende de nenhuma interface
+                    (porta de entrada / caso de uso) declarada em um pacote do núcleo do domínio.
+                </p>
+                <p class="card-suggestion">
+                    <span class="suggestion-label">Sugestão de correção:</span> Injete (via
+                    campo ou construtor) uma interface de caso de uso do núcleo (ex.: pacote
+                    <code>usecase</code>/<code>usecases</code>) representando a operação que
+                    este adapter expõe — quem implementa essa interface é o núcleo de
+                    aplicação, não este adapter.
+                </p>
+                {% elif violation.role == 'DRIVEN_ADAPTER' %}
+                <p class="card-explanation">
+                    Esta classe está em um pacote classificado como adapter de saída (driven
+                    adapter, Arquitetura Hexagonal), mas não implementa nenhuma interface
+                    (porta de saída) declarada em um pacote do núcleo do domínio.
+                </p>
+                <p class="card-suggestion">
+                    <span class="suggestion-label">Sugestão de correção:</span> Defina uma
+                    interface no pacote do núcleo (ex.: <code>port</code>/<code>ports</code>)
+                    representando o contrato que este adapter deveria implementar, e faça esta
+                    classe implementá-la — mantendo o núcleo independente de detalhes de
+                    infraestrutura.
+                </p>
+                {% else %}
                 <p class="card-explanation">
                     Esta classe está em um pacote classificado como adapter (Arquitetura
                     Hexagonal), mas não implementa nenhuma interface (porta) declarada em um
@@ -677,6 +705,7 @@
                     classe implementá-la — mantendo o núcleo independente de detalhes de
                     infraestrutura.
                 </p>
+                {% endif %}
             </div>
             {% else %}
             <div class="card violation">

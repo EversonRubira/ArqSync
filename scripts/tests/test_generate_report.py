@@ -244,14 +244,37 @@ def test_suggestions_view_violation_without_class_samples_has_no_impact_label():
 
 def test_adapter_port_violations_view_is_a_straight_transcription():
     adapter_port_violations = [
-        {"adapterPackage": {"value": "com.acme.adapter"}, "className": "BrokenAdapter"},
+        {
+            "adapterPackage": {"value": "com.acme.adapter"},
+            "className": "BrokenAdapter",
+            "role": "DRIVEN_ADAPTER",
+        },
     ]
 
     view = gr.build_adapter_port_violations_view(adapter_port_violations)
 
     assert view == [
-        {"kind": "adapter_port", "package": "com.acme.adapter", "class_name": "BrokenAdapter"},
+        {
+            "kind": "adapter_port",
+            "package": "com.acme.adapter",
+            "class_name": "BrokenAdapter",
+            "role": "DRIVEN_ADAPTER",
+        },
     ]
+
+
+def test_adapter_port_violations_view_defaults_role_to_none_when_missing():
+    # Backward compatibility with report.json files produced before
+    # ADENDO-SPEC-analyzer-adapter-porta-direcao.md added `role` to the
+    # Java record - the template falls back to the old, direction-agnostic
+    # copy when role is missing/None.
+    adapter_port_violations = [
+        {"adapterPackage": {"value": "com.acme.adapter"}, "className": "BrokenAdapter"},
+    ]
+
+    view = gr.build_adapter_port_violations_view(adapter_port_violations)
+
+    assert view[0]["role"] is None
 
 
 def test_adapter_port_violations_view_defaults_to_empty_list():
@@ -293,6 +316,40 @@ def test_render_html_combines_layer_and_adapter_port_violations_in_the_same_sect
     assert "com.acme.adapter.BrokenAdapter" in html
     # the existing layer violation from the fixture is still rendered in the same section
     assert "OrderController depende diretamente de OrderRepository" in html
+
+
+def test_render_html_shows_driving_adapter_specific_copy(monkeypatch):
+    report_data = dict(load_fixture("with-cycle-and-violation.json"))
+    report_data["adapterPortViolations"] = [
+        {
+            "adapterPackage": {"value": "com.acme.adapters.in.web"},
+            "className": "DevUserController",
+            "role": "DRIVING_ADAPTER",
+        },
+    ]
+    monkeypatch.setattr(gr, "build_pdf_diagram_svg", lambda *a, **k: "")
+
+    html = gr.render_html(report_data)
+
+    assert "porta de entrada / caso de uso" in html
+    assert "porta de saída" not in html
+
+
+def test_render_html_shows_driven_adapter_specific_copy(monkeypatch):
+    report_data = dict(load_fixture("with-cycle-and-violation.json"))
+    report_data["adapterPortViolations"] = [
+        {
+            "adapterPackage": {"value": "com.acme.adapter"},
+            "className": "BrokenAdapter",
+            "role": "DRIVEN_ADAPTER",
+        },
+    ]
+    monkeypatch.setattr(gr, "build_pdf_diagram_svg", lambda *a, **k: "")
+
+    html = gr.render_html(report_data)
+
+    assert "porta de saída" in html
+    assert "porta de entrada / caso de uso" not in html
 
 
 def test_ai_suggestions_view_is_a_straight_transcription_preserving_order():
