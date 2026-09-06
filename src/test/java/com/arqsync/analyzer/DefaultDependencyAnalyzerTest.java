@@ -58,15 +58,16 @@ class DefaultDependencyAnalyzerTest {
     void hexagonalProjectWithAnAdapterMissingAPortProducesAnAdapterPortViolation() {
         ProjectScan scan = ProjectScanFixtures.builder()
                 .classImplementing("com.acme.port", "OrderPort", true)
-                .classImplementing("com.acme.adapter", "OrderAdapter", false, "OrderPort")
-                .classImplementing("com.acme.adapter", "BrokenAdapter", false)
+                .classImplementing("com.acme.adapter.out", "OrderAdapter", false, "OrderPort")
+                .classImplementing("com.acme.adapter.out", "BrokenAdapter", false)
                 .build();
 
         AnalysisResult result = analyzer.analyze(scan);
 
         assertThat(result.architectureStyle()).isEqualTo(DefaultArchitectureStyleDetector.HEXAGONAL);
         assertThat(result.adapterPortViolations()).containsExactly(
-                new AdapterSemPortaViolation(new PackageName("com.acme.adapter"), "BrokenAdapter")
+                new AdapterSemPortaViolation(new PackageName("com.acme.adapter.out"), "BrokenAdapter",
+                        PackageRole.DRIVEN_ADAPTER)
         );
         assertThat(result.metrics().violationCount()).isEqualTo(1);
     }

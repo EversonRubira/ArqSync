@@ -67,7 +67,7 @@ final class ProjectScanFixtures {
 
         /** Adds a class with an arbitrary, explicit list of raw import strings. */
         Builder classWithImports(String packageName, String className, String... imports) {
-            addClass(packageName, className, List.of(imports), List.of(), false);
+            addClass(packageName, className, List.of(imports), List.of(), false, List.of());
             return this;
         }
 
@@ -78,7 +78,17 @@ final class ProjectScanFixtures {
          * where imports don't matter but supertypes and interface-ness do.
          */
         Builder classImplementing(String packageName, String className, boolean isInterface, String... superTypes) {
-            addClass(packageName, className, List.of(), List.of(superTypes), isInterface);
+            addClass(packageName, className, List.of(), List.of(superTypes), isInterface, List.of());
+            return this;
+        }
+
+        /**
+         * Adds a class declaring the given field types (simple names) — for driving
+         * adapter fixtures (ADENDO-SPEC-analyzer-adapter-porta-direcao.md, 2.5), where
+         * what matters is what the class depends on, not what it implements.
+         */
+        Builder classDependingOn(String packageName, String className, String... fieldTypes) {
+            addClass(packageName, className, List.of(), List.of(), false, List.of(fieldTypes));
             return this;
         }
 
@@ -89,14 +99,14 @@ final class ProjectScanFixtures {
         }
 
         private void addClass(String packageName, String className, List<String> imports) {
-            addClass(packageName, className, imports, List.of(), false);
+            addClass(packageName, className, imports, List.of(), false, List.of());
         }
 
         private void addClass(String packageName, String className, List<String> imports,
-                               List<String> superTypes, boolean isInterface) {
+                               List<String> superTypes, boolean isInterface, List<String> fieldTypes) {
             classesByPackage
                     .computeIfAbsent(packageName, key -> new ArrayList<>())
-                    .add(new ClassScan(className, packageName, imports, superTypes, isInterface));
+                    .add(new ClassScan(className, packageName, imports, superTypes, isInterface, fieldTypes));
         }
 
         ProjectScan build() {

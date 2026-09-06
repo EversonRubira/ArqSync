@@ -256,6 +256,7 @@ public class DefaultGroqSuggestionService implements GroqSuggestionService {
             ObjectNode v = adapterPortViolationsNode.addObject();
             v.put("adapterPackage", violation.adapterPackage().value());
             v.put("className", violation.className());
+            v.put("role", violation.role().name());
         }
 
         try {
