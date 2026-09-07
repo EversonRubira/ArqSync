@@ -1,5 +1,7 @@
 # ArqSync
 
+![ArqSync — Análise de Arquitetura de Software](docs/arqsync-architecture.svg)
+
 Ferramenta CLI para análise e evolução arquitetural de projetos Java.
 
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
