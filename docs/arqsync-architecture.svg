@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1060" viewBox="0 0 1800 1060">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#9ca3af"/>
+  </marker>
+  <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+    <path d="M28,0 L0,0 0,28" fill="none" stroke="#141b2b" stroke-width="1"/>
+  </pattern>
+</defs>
+<rect x="0" y="0" width="1800" height="1060" fill="#0b0f19"/>
+<rect x="0" y="0" width="1800" height="1060" fill="url(#grid)"/>
+<text x="900.0" y="60" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="42" font-weight="700" fill="#f8fafc">ArqSync — Análise de Arquitetura de Software</text>
+<text x="900.0" y="90" text-anchor="middle" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="16" fill="#8b93a7">detecção automática de estilo arquitetural · ciclos · violações de camada</text>
+<rect x="20" y="120" width="560" height="630" rx="14" fill="#121826" stroke="#1f2937" stroke-width="1.5"/>
+<text x="300.0" y="178" text-anchor="middle" font-size="40">🧅</text>
+<text x="300.0" y="216" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="24" font-weight="700" fill="#f8fafc">Clean Architecture</text>
+<text x="300.0" y="240" text-anchor="middle" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="13" fill="#8b93a7">camadas concêntricas</text>
+<circle cx="300.0" cy="520" r="220" fill="#4c1d95" stroke="#0b0f19" stroke-width="3"/>
+<circle cx="300.0" cy="520" r="165" fill="#6d28d9" stroke="#0b0f19" stroke-width="3"/>
+<circle cx="300.0" cy="520" r="110" fill="#8b5cf6" stroke="#0b0f19" stroke-width="3"/>
+<circle cx="300.0" cy="520" r="55" fill="#c4b5fd" stroke="#0b0f19" stroke-width="3"/>
+<text x="300.0" y="324" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="600" fill="#ede9fe">Frameworks & Drivers</text>
+<text x="300.0" y="379" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="600" fill="#ede9fe">Interface Adapters</text>
+<text x="300.0" y="434" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#f5f3ff">Use Cases</text>
+<text x="300.0" y="489" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#f5f3ff">Entities</text>
+<text x="300.0" y="716" text-anchor="middle" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="13" fill="#8b93a7">dependências sempre apontam para dentro →</text>
+<rect x="620" y="120" width="560" height="630" rx="14" fill="#121826" stroke="#1f2937" stroke-width="1.5"/>
+<text x="900.0" y="178" text-anchor="middle" font-size="40">⬡</text>
+<text x="900.0" y="216" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="24" font-weight="700" fill="#f8fafc">Hexagonal Architecture</text>
+<text x="900.0" y="240" text-anchor="middle" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="13" fill="#8b93a7">ports & adapters</text>
+<line x1="750.0" y1="500" x2="762.0" y2="500" stroke="#9ca3af" stroke-width="2.5" marker-end="url(#arrow)"/>
+<line x1="838.0" y1="500" x2="822.0" y2="500" stroke="#9ca3af" stroke-width="2.5" marker-end="url(#arrow)"/>
+<line x1="978.0" y1="500" x2="962.0" y2="500" stroke="#9ca3af" stroke-width="2.5" marker-end="url(#arrow)"/>
+<line x1="1038.0" y1="500" x2="1050.0" y2="500" stroke="#9ca3af" stroke-width="2.5" marker-end="url(#arrow)"/>
+<polygon points="744.1,478.0 744.1,522.0 706.0,544.0 667.9,522.0 667.9,478.0 706.0,456.0" fill="#134e4a" stroke="#0b0f19" stroke-width="3"/>
+<text x="706.0" y="499" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#f0fdfa">REST</text>
+<text x="706.0" y="512" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#f0fdfa">Controller</text>
+<polygon points="832.9,481.0 832.9,519.0 800.0,538.0 767.1,519.0 767.1,481.0 800.0,462.0" fill="#0e7490" stroke="#0b0f19" stroke-width="3"/>
+<text x="800.0" y="499" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="600" fill="#f0fdfa">Input</text>
+<text x="800.0" y="512" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="600" fill="#f0fdfa">Port</text>
+<polygon points="967.5,461.0 967.5,539.0 900.0,578.0 832.5,539.0 832.5,461.0 900.0,422.0" fill="#06b6d4" stroke="#0b0f19" stroke-width="3"/>
+<text x="900.0" y="499" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#f0fdfa">Domain</text>
+<text x="900.0" y="512" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#f0fdfa">Core</text>
+<polygon points="1032.9,481.0 1032.9,519.0 1000.0,538.0 967.1,519.0 967.1,481.0 1000.0,462.0" fill="#0e7490" stroke="#0b0f19" stroke-width="3"/>
+<text x="1000.0" y="499" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="600" fill="#f0fdfa">Output</text>
+<text x="1000.0" y="512" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="600" fill="#f0fdfa">Port</text>
+<polygon points="1132.1,478.0 1132.1,522.0 1094.0,544.0 1055.9,522.0 1055.9,478.0 1094.0,456.0" fill="#134e4a" stroke="#0b0f19" stroke-width="3"/>
+<text x="1094.0" y="499" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#f0fdfa">Repository</text>
+<text x="1094.0" y="512" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#f0fdfa">Adapter</text>
+<text x="900.0" y="640" text-anchor="middle" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="13" fill="#8b93a7">adapter → port → core → port → adapter</text>
+<text x="900.0" y="716" text-anchor="middle" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="13" fill="#8b93a7">o core nunca depende de um adapter</text>
+<rect x="1220" y="120" width="560" height="630" rx="14" fill="#121826" stroke="#1f2937" stroke-width="1.5"/>
+<text x="1500.0" y="178" text-anchor="middle" font-size="40">📦</text>
+<text x="1500.0" y="216" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="24" font-weight="700" fill="#f8fafc">Layered Architecture</text>
+<text x="1500.0" y="240" text-anchor="middle" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="13" fill="#8b93a7">faixas horizontais</text>
+<rect x="1280" y="295" width="440" height="90" rx="8" fill="#f59e0b"/>
+<text x="1500.0" y="346.0" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#1c1006">Apresentação (Controller)</text>
+<line x1="1734" y1="387" x2="1734" y2="407" stroke="#9ca3af" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="1280" y="399" width="440" height="90" rx="8" fill="#d97706"/>
+<text x="1500.0" y="450.0" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#1c1006">Serviço / Negócio</text>
+<line x1="1734" y1="491" x2="1734" y2="511" stroke="#9ca3af" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="1280" y="503" width="440" height="90" rx="8" fill="#b45309"/>
+<text x="1500.0" y="554.0" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#1c1006">Persistência (Repository)</text>
+<line x1="1734" y1="595" x2="1734" y2="615" stroke="#9ca3af" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="1280" y="607" width="440" height="90" rx="8" fill="#78350f"/>
+<text x="1500.0" y="658.0" text-anchor="middle" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#1c1006">Banco de Dados</text>
+<text x="1500.0" y="716" text-anchor="middle" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="13" fill="#8b93a7">cada camada depende apenas da camada abaixo ↓</text>
+<rect x="110.0" y="796" width="500" height="130" rx="12" fill="#121826" stroke="#1f2937" stroke-width="1.5"/>
+<rect x="110.0" y="796" width="6" height="130" rx="3" fill="#06b6d4"/>
+<text x="144.0" y="848" font-size="34">🔍</text>
+<text x="202.0" y="842" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" fill="#f8fafc">Arquitetura detectada</text>
+<text x="202.0" y="868" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="13" fill="#8b93a7">Hexagonal · Clean · Layered · DDD</text>
+<rect x="650.0" y="796" width="500" height="130" rx="12" fill="#121826" stroke="#1f2937" stroke-width="1.5"/>
+<rect x="650.0" y="796" width="6" height="130" rx="3" fill="#f59e0b"/>
+<text x="684.0" y="848" font-size="34">🔄</text>
+<text x="742.0" y="842" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" fill="#f8fafc">Ciclos encontrados</text>
+<text x="742.0" y="868" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="13" fill="#8b93a7">detecção de dependências circulares</text>
+<rect x="1190.0" y="796" width="500" height="130" rx="12" fill="#121826" stroke="#1f2937" stroke-width="1.5"/>
+<rect x="1190.0" y="796" width="6" height="130" rx="3" fill="#ef4444"/>
+<text x="1224.0" y="848" font-size="34">🚫</text>
+<text x="1282.0" y="842" font-family="-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" fill="#f8fafc">Violações de camada</text>
+<text x="1282.0" y="868" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="13" fill="#8b93a7">adapters sem porta, imports indevidos</text>
+<text x="900.0" y="1042" text-anchor="middle" font-family="'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace" font-size="12" fill="#4b5563">github.com/EversonRubira/arqsync</text>
+</svg>
